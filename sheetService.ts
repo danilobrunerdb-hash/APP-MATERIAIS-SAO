@@ -2,88 +2,101 @@
 import { Movement } from './types';
 
 /**
- * INSTRUÇÕES PARA O BACKEND (GOOGLE SHEETS) - V2 ROBUSTA:
- * 1. Abra sua planilha do Google.
- * 2. Vá em Extensões > Apps Script.
- * 3. Apague tudo e cole o código abaixo exatamente:
+ * INSTRUÇÕES PARA O GOOGLE APPS SCRIPT (GAS) - VERSÃO DE ALTA FIDELIDADE:
+ * 
+ * 1. No Google Sheets, vá em Extensões > Apps Script.
+ * 2. Substitua TODO o código lá por este abaixo:
  * 
  * function doPost(e) {
- *   var data = JSON.parse(e.postData.contents);
- *   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
- *   
- *   if (data.action === 'save') {
- *     sheet.clearContents();
- *     // Cabeçalho da Planilha
- *     sheet.appendRow(["ID", "BM", "Nome", "Posto", "Material", "Data Saída", "Previsão", "Status", "Data Retorno", "Recebedor", "Obs", "Motivo"]);
+ *   try {
+ *     var data = JSON.parse(e.postData.contents);
+ *     var ss = SpreadsheetApp.getActiveSpreadsheet();
+ *     var sheet = ss.getActiveSheet();
  *     
- *     data.movements.forEach(function(m) {
- *       sheet.appendRow([
- *         m.id, 
- *         m.bm, 
- *         m.name, 
- *         m.rank, 
- *         m.material, 
- *         m.dateCheckout, 
- *         m.estimatedReturnDate || '', 
- *         m.status, 
- *         m.dateReturn || '', 
- *         m.receiverWarName || '', 
- *         m.observations || '',
- *         m.reason || ''
- *       ]);
- *     });
- *     return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+ *     if (data.action === 'save' && data.movements && Array.isArray(data.movements)) {
+ *       sheet.clear(); // Limpa para evitar duplicidade ou lixo
+ *       var headers = [
+ *         "ID", "BM", "Nome", "Nome Guerra", "Posto", 
+ *         "Material", "Categoria", "Data Saída", "Previsão", "Motivo", 
+ *         "Status", "Data Retorno", "Obs", "Recebedor BM", "Recebedor Nome", 
+ *         "Recebedor Guerra", "Recebedor Posto"
+ *       ];
+ *       sheet.appendRow(headers);
+ *       
+ *       if (data.movements.length > 0) {
+ *         var rows = data.movements.map(function(m) {
+ *           return [
+ *             m.id, m.bm, m.name, m.warName, m.rank,
+ *             m.material, m.type, m.dateCheckout, m.estimatedReturnDate || '', m.reason || '',
+ *             m.status, m.dateReturn || '', m.observations || '', m.receiverBm || '', m.receiverName || '',
+ *             m.receiverWarName || '', m.receiverRank || ''
+ *           ];
+ *         });
+ *         sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+ *       }
+ *       return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+ *     }
+ *   } catch(err) {
+ *     return ContentService.createTextOutput("Error: " + err.toString()).setMimeType(ContentService.MimeType.TEXT);
  *   }
  * }
  * 
  * function doGet(e) {
- *   var action = e.parameter.action;
- *   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
- *   var values = sheet.getDataRange().getValues();
- *   
- *   if (action === 'read') {
- *     var results = [];
- *     for (var i = 1; i < values.length; i++) {
- *       results.push({
- *         id: String(values[i][0]),
- *         bm: String(values[i][1]),
- *         name: String(values[i][2]),
- *         rank: String(values[i][3]),
- *         material: String(values[i][4]),
- *         dateCheckout: String(values[i][5]),
- *         estimatedReturnDate: String(values[i][6]),
- *         status: String(values[i][7]),
- *         dateReturn: String(values[i][8]),
- *         receiverWarName: String(values[i][9]),
- *         observations: String(values[i][10]),
- *         reason: String(values[i][11] || 'TPB')
- *       });
+ *   try {
+ *     var action = e.parameter.action;
+ *     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+ *     var data = sheet.getDataRange().getValues();
+ *     
+ *     if (action === 'read') {
+ *       if (data.length <= 1) return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
+ *       var results = [];
+ *       for (var i = 1; i < data.length; i++) {
+ *         var row = data[i];
+ *         if (!row[0]) continue;
+ *         results.push({
+ *           id: String(row[0]),
+ *           bm: String(row[1]),
+ *           name: String(row[2]),
+ *           warName: String(row[3]),
+ *           rank: String(row[4]),
+ *           material: String(row[5]),
+ *           type: String(row[6]),
+ *           dateCheckout: String(row[7]),
+ *           estimatedReturnDate: String(row[8]),
+ *           reason: String(row[9]),
+ *           status: String(row[10]),
+ *           dateReturn: String(row[11]),
+ *           observations: String(row[12]),
+ *           receiverBm: String(row[13]),
+ *           receiverName: String(row[14]),
+ *           receiverWarName: String(row[15]),
+ *           receiverRank: String(row[16])
+ *         });
+ *       }
+ *       return ContentService.createTextOutput(JSON.stringify(results)).setMimeType(ContentService.MimeType.JSON);
  *     }
- *     return ContentService.createTextOutput(JSON.stringify(results)).setMimeType(ContentService.MimeType.JSON);
+ *   } catch(err) {
+ *     return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
  *   }
- *   return ContentService.createTextOutput("Invalid Action").setMimeType(ContentService.MimeType.TEXT);
  * }
  * 
- * 4. Clique em "Implantar" > "Nova Implantação".
- * 5. Selecione "App da Web", "Executar como: Eu" e "Quem pode acessar: Qualquer um".
- * 6. Copie a URL e cole nas configurações (engrenagem) do app.
+ * 3. Clique em "Implantar" > "Nova Implantação".
+ * 4. Tipo: Web App | Quem pode acessar: "Qualquer um".
+ * 5. Copie a nova URL gerada e cole nas configurações do aplicativo.
  */
 
 export const saveToSheets = async (url: string, movements: Movement[]) => {
   if (!url || !url.includes("exec")) return false;
   
   try {
-    // Usamos o modo 'no-cors' para evitar problemas de preflight se o GAS não estiver perfeito,
-    // mas POST com JSON exige que o GAS esteja configurado como App da Web.
-    await fetch(url, {
+    const response = await fetch(url, {
       method: 'POST',
-      mode: 'no-cors', // Importante para Google Apps Script
       body: JSON.stringify({ action: 'save', movements }),
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     });
-    return true; 
+    return response.ok;
   } catch (error) {
-    console.error("Sync Error (Save):", error);
+    console.error("Erro ao salvar dados remotos:", error);
     return false;
   }
 };
@@ -92,13 +105,12 @@ export const fetchFromSheets = async (url: string): Promise<Movement[] | null> =
   if (!url || !url.includes("exec")) return null;
   
   try {
-    // Cache busting com timestamp
     const response = await fetch(`${url}?action=read&t=${Date.now()}`);
-    if (!response.ok) throw new Error("Network Response Fail");
+    if (!response.ok) return null;
     const data = await response.json();
-    return data as Movement[];
+    return Array.isArray(data) ? data : null;
   } catch (error) {
-    console.error("Sync Error (Fetch):", error);
+    console.error("Erro ao buscar dados remotos:", error);
     return null;
   }
 };

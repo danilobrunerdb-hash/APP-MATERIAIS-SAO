@@ -33,12 +33,12 @@ import {
   Check,
   AlertCircle,
   Filter,
-  ArrowRight
+  ArrowRight,
+  AlertOctagon
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzlAE_yo3o6mo7X-4x4oeE0zD8S16gbqi0zEty5IyebTE7ww178_u1g8bOdffB_ApEt/exec";
 
-// Configuração atualizada com a nova chave fornecida (F0L0nHY7l2OI-DgpO)
 const EMAILJS_CONFIG = {
   SERVICE_ID: "TESTE SAO", 
   TEMPLATE_ID: "template_epzy7h4", 
@@ -65,7 +65,6 @@ const formatDateTime = (dateStr?: string) => {
 const formatDateOnly = (dateStr?: string) => {
   if (!dateStr) return "-";
   try {
-    // Se for formato YYYY-MM-DD simples do input date
     if (dateStr.length === 10 && dateStr.includes('-')) {
       const [y, m, d] = dateStr.split('-');
       return `${d}/${m}/${y}`;
@@ -74,6 +73,14 @@ const formatDateOnly = (dateStr?: string) => {
     if (isNaN(d.getTime())) return dateStr;
     return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
   } catch { return dateStr; }
+};
+
+const isOverdue = (estimatedDate?: string, status?: MovementStatus) => {
+  if (!estimatedDate || status === MovementStatus.DEVOLVIDO) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const estimate = new Date(estimatedDate);
+  return estimate < today;
 };
 
 interface Notification {
@@ -146,7 +153,7 @@ const App: React.FC = () => {
       addNotification(`E-mail enviado para ${email}`, 'success');
     } catch (error) {
       console.error("Erro EmailJS:", error);
-      addNotification(`Falha no e-mail (${email}). Verifique as chaves.`, 'error');
+      addNotification(`Falha no e-mail militar (${email}).`, 'error');
     }
   };
 
@@ -225,11 +232,11 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msg = `Olá (${authState.user.rank} ${authState.user.name} registramos uma retirada de material na SAO do 6º BBM em seu nome (${checkoutMaterial}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
+      const msg = `Olá ${authState.user.rank} ${authState.user.warName}, confirmamos a retirada de material na SAO do 6º BBM (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Caso não reconheça este registro, procure a SAO imediatamente.`;
       await sendMovementEmail(authState.user.bm, msg, "Retirada de Material - SAO 6º BBM");
     } else {
       setSyncError(true);
-      addNotification("Erro ao salvar dados. E-mail não enviado.", "error");
+      addNotification("Aviso: Dados salvos localmente, sync pendente.", "error");
     }
     
     setCheckoutMaterial(''); 
@@ -268,11 +275,11 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msg = `Olá ${authState.user.rank} ${authState.user.name} registramos que você recebeu os seguintes materiais na SAO do 6º BBM acautelados por ${returnTarget.rank} ${returnTarget.name}: (${returnTarget.material}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
-      await sendMovementEmail(authState.user.bm, msg, "Recebimento de Material - SAO 6º BBM");
+      const msg = `Olá ${returnTarget.rank} ${returnTarget.warName}, confirmamos a devolução do material (${returnTarget.material}) na SAO do 6º BBM. Recebido por: ${authState.user.rank} ${authState.user.warName}.`;
+      await sendMovementEmail(returnTarget.bm, msg, "Devolução Confirmada - SAO 6º BBM");
     } else {
       setSyncError(true);
-      addNotification("Erro ao salvar dados. E-mail não enviado.", "error");
+      addNotification("Devolução registrada localmente. Sync pendente.", "error");
     }
     
     setReturnTarget(null);
@@ -302,17 +309,19 @@ const App: React.FC = () => {
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
           <div className="bg-red-700 p-10 text-center text-white">
             <h1 className="text-4xl font-black uppercase tracking-tighter">SAO - 6º BBM</h1>
-            <p className="text-[10px] font-bold mt-2 opacity-90 tracking-widest uppercase">Controle de materiais da SAO</p>
+            <p className="text-[10px] font-bold mt-2 opacity-90 tracking-widest uppercase">Controle de Material CBMMG</p>
           </div>
           <div className="p-8">
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const names = formName.trim().split(/\s+/);
               const uppercaseWords = names.filter(n => n === n.toUpperCase() && n.length >= 2);
-              const warNameFound = uppercaseWords.length > 0 ? uppercaseWords.join(' ') : names[0];
+              const warNameFound = uppercaseWords.length > 0 ? uppercaseWords.join(' ') : names[names.length - 1];
               const user = { rank: formRank, name: formName, warName: warNameFound, bm: formBm, cpf: '' };
               setAuthState({ user, isVisitor: false });
               localStorage.setItem('sao_current_user', JSON.stringify(user));
+              // Sincroniza dados imediatamente após o login para todos os usuários
+              await syncData(true);
             }} className="space-y-5">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posto/Graduação</label>
@@ -322,11 +331,11 @@ const App: React.FC = () => {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">nome completo (Nome de Guerra em caixa Alta)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo (GUERRA em CAIXA ALTA)</label>
                 <input type="text" placeholder="Ex: João SILVA Santos" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={formName} onChange={(e) => setFormName(e.target.value)} required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">nº BM</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº BM</label>
                 <input type="text" placeholder="Ex: 123.456-7" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={formBm} onChange={(e) => setFormBm(formatBM(e.target.value))} required />
               </div>
               <button type="submit" className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-4 rounded-xl shadow-lg uppercase tracking-widest border-b-4 border-red-900 transition-all active:scale-95 mt-2">Acessar Sistema</button>
@@ -346,15 +355,11 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2 mt-1">
               {!isOnline ? (
                 <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-red-100 bg-red-900/60 px-2 py-0.5 rounded-full border border-red-400/30 animate-pulse">
-                  <WifiOff className="w-3 h-3" /> Sem Internet
-                </div>
-              ) : !hasInitialLoad ? (
-                <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-white bg-slate-900/40 px-2 py-0.5 rounded-full border border-white/20">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Conectando...
+                  <WifiOff className="w-3 h-3" /> Modo Offline
                 </div>
               ) : syncError ? (
                 <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-amber-200 bg-amber-900/40 px-2 py-0.5 rounded-full border border-amber-400/30">
-                  <CloudOff className="w-3 h-3" /> Banco Instável
+                  <CloudOff className="w-3 h-3" /> Sync Falhou
                 </div>
               ) : (
                 <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-green-300 bg-green-950/30 px-2 py-0.5 rounded-full border border-green-500/20">
@@ -367,10 +372,10 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-red-800/40 rounded-xl border border-white/10">
               <User className="w-3.5 h-3.5 text-red-200" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Olá {authState.user.rank} {authState.user.warName}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">{authState.user.rank} {authState.user.warName}</span>
             </div>
 
-            <button onClick={handleSyncManually} className={`p-2 rounded-xl transition-all hover:bg-red-800 bg-red-800/20 ${isSyncing ? 'animate-spin' : ''}`} title="Sincronizar Agora">
+            <button onClick={handleSyncManually} className={`p-2 rounded-xl transition-all hover:bg-red-800 bg-red-800/20 ${isSyncing ? 'animate-spin' : ''}`} title="Sincronizar">
               <RefreshCw className="w-5 h-5" />
             </button>
             {authState.user.bm === '161.382-7' && (
@@ -421,26 +426,20 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-5">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição Detalhada dos Materiais</label>
-                      <textarea placeholder="Ex: 02 Cordas de 50m, 01 Maca Sked..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[160px] font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all" value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} required />
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição Detalhada</label>
+                      <textarea placeholder="Ex: 01 Desencarcerador Holmatro, 01 Conjunto de Almofadas..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[160px] font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all" value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} required />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Motivo do acautelamento</label>
-                      <input 
-                        type="text" 
-                        placeholder="Treinamento, TPB, manutenção, Ocorrência" 
-                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" 
-                        value={checkoutReason} 
-                        onChange={(e) => setCheckoutReason(e.target.value)} 
-                      />
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Motivo do Acautelamento</label>
+                      <input type="text" placeholder="Treinamento, Manutenção, Ocorrência" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutReason} onChange={(e) => setCheckoutReason(e.target.value)} />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Previsão de Retorno (Estimativa)</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Previsão de Retorno Estimada</label>
                       <input type="date" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={checkoutEstimatedReturn} onChange={(e) => setCheckoutEstimatedReturn(e.target.value)} required />
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Seção Responsável pelo Material</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Categoria Responsável</label>
                     <div className="grid grid-cols-1 gap-2">
                       {MATERIAL_TYPES.map(t => (
                         <button key={t} type="button" onClick={() => setCheckoutType(t)} className={`flex justify-between items-center p-4 rounded-xl border transition-all ${checkoutType === t ? 'border-red-600 bg-red-50 text-red-700 font-bold shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
@@ -452,8 +451,8 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <button type="submit" disabled={!hasInitialLoad || isSaving} className="w-full bg-red-700 hover:bg-red-800 disabled:bg-slate-300 text-white font-bold py-5 rounded-2xl shadow-xl uppercase flex items-center justify-center gap-3 border-b-4 border-red-900 transition-all active:scale-95">
-                  {isSaving || !hasInitialLoad ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
-                  {!hasInitialLoad ? "Carregando Banco..." : isSaving ? "Salvando..." : "Registrar Acautelamento"}
+                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
+                  {isSaving ? "Salvando Registro..." : "Confirmar Acautelamento"}
                 </button>
               </form>
             </div>
@@ -462,33 +461,41 @@ const App: React.FC = () => {
           {activeTab === 'checkin' && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 min-h-[500px]">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-4 border-b gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800 uppercase flex items-center gap-2">
-                    <ArrowRightLeft className="w-6 h-6 text-red-600" /> Pendências na SAO
-                  </h2>
-                </div>
+                <h2 className="text-xl font-bold text-slate-800 uppercase flex items-center gap-2">
+                  <ArrowRightLeft className="w-6 h-6 text-red-600" /> Pendências na SAO
+                </h2>
                 <div className="w-full md:w-96 relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <input type="text" placeholder="Pesquisar..." className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium outline-none" value={checkinSearchTerm} onChange={(e) => setCheckinSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Filtrar por Militar ou BM..." className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium outline-none" value={checkinSearchTerm} onChange={(e) => setCheckinSearchTerm(e.target.value)} />
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4">
                 {movements.filter(m => m.status === MovementStatus.PENDENTE).filter(m => 
                   [m.name, m.material, m.bm].some(f => (f || '').toLowerCase().includes(checkinSearchTerm.toLowerCase()))
-                ).map(m => (
-                  <div key={m.id} className="border border-slate-100 rounded-2xl p-6 bg-slate-50/50 hover:bg-white transition-all flex flex-col md:flex-row justify-between gap-6 group">
-                    <div className="flex-1">
-                      <h4 className="font-black text-lg uppercase text-slate-800 mb-1">{m.rank} {m.warName}</h4>
-                      <p className="text-[11px] text-slate-400 font-bold mb-3">BM {m.bm} | Saída: {formatDateTime(m.dateCheckout)}</p>
-                      <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-sm text-slate-600 font-medium italic group-hover:border-red-100">
-                        "{m.material}"
+                ).map(m => {
+                  const overdue = isOverdue(m.estimatedReturnDate, m.status);
+                  return (
+                    <div key={m.id} className={`border rounded-2xl p-6 transition-all flex flex-col md:flex-row justify-between gap-6 group ${overdue ? 'bg-red-50 border-red-100 hover:bg-red-100/50' : 'bg-slate-50/50 hover:bg-white border-slate-100'}`}>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-black text-lg uppercase text-slate-800 leading-tight">{m.rank} {m.warName}</h4>
+                          {overdue && <span className="bg-red-600 text-white text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1"><AlertOctagon className="w-2.5 h-2.5" /> ATRASADO</span>}
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
+                          <p className="text-[11px] text-slate-400 font-bold">BM {m.bm}</p>
+                          <p className="text-[11px] text-slate-400 font-bold">Retirado em: {formatDateTime(m.dateCheckout)}</p>
+                          <p className={`text-[11px] font-black uppercase ${overdue ? 'text-red-600' : 'text-slate-400'}`}>Previsão: {formatDateOnly(m.estimatedReturnDate)}</p>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-sm text-slate-700 font-medium italic">
+                          "{m.material}"
+                        </div>
                       </div>
+                      <button onClick={() => { setReturnTarget(m); setShowReturnConfirm(true); }} className="bg-green-600 hover:bg-green-700 text-white font-black px-8 py-4 rounded-xl uppercase text-[10px] self-center shadow-lg border-b-4 border-green-800 transition-all active:scale-95 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" /> Receber Material
+                      </button>
                     </div>
-                    <button onClick={() => { setReturnTarget(m); setShowReturnConfirm(true); }} className="bg-green-600 hover:bg-green-700 text-white font-black px-8 py-4 rounded-xl uppercase text-[10px] self-center shadow-lg border-b-4 border-green-800 transition-all active:scale-95 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" /> Receber Material
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -496,137 +503,93 @@ const App: React.FC = () => {
           {activeTab === 'history' && (
              <div className="space-y-6">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-                   {/* Filtros e Busca */}
                    <div className="flex flex-col xl:flex-row gap-6 mb-8 items-start xl:items-center">
                       <div className="flex-1 w-full relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input 
-                          type="text" 
-                          placeholder="Pesquisar por material, militar, BM..." 
-                          className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 focus:ring-red-500 transition-all" 
-                          value={searchTerm} 
-                          onChange={(e) => setSearchTerm(e.target.value)} 
-                        />
+                        <input type="text" placeholder="Filtrar por qualquer campo..." className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 focus:ring-red-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                       </div>
                       <div className="flex flex-wrap items-center gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200">
-                        <button 
-                          onClick={() => setStatusFilter('all')}
-                          className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-white/50'}`}
-                        >
-                          Todos
-                        </button>
-                        <button 
-                          onClick={() => setStatusFilter(MovementStatus.PENDENTE)}
-                          className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${statusFilter === MovementStatus.PENDENTE ? 'bg-amber-500 text-white shadow-md' : 'text-amber-600 hover:bg-amber-50'}`}
-                        >
-                          <Clock className="w-3.5 h-3.5" /> Pendentes
-                        </button>
-                        <button 
-                          onClick={() => setStatusFilter(MovementStatus.DEVOLVIDO)}
-                          className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${statusFilter === MovementStatus.DEVOLVIDO ? 'bg-green-600 text-white shadow-md' : 'text-green-600 hover:bg-green-50'}`}
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Devolvidos
-                        </button>
+                        <button onClick={() => setStatusFilter('all')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-white/50'}`}>Todos</button>
+                        <button onClick={() => setStatusFilter(MovementStatus.PENDENTE)} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${statusFilter === MovementStatus.PENDENTE ? 'bg-amber-500 text-white shadow-md' : 'text-amber-600 hover:bg-amber-50'}`}><Clock className="w-3.5 h-3.5" /> Pendências</button>
+                        <button onClick={() => setStatusFilter(MovementStatus.DEVOLVIDO)} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${statusFilter === MovementStatus.DEVOLVIDO ? 'bg-green-600 text-white shadow-md' : 'text-green-600 hover:bg-green-50'}`}><CheckCircle2 className="w-3.5 h-3.5" /> Devolvidos</button>
                       </div>
                    </div>
 
-                   {/* Tabela de Histórico Refatorada */}
                    <div className="overflow-x-auto -mx-6 sm:mx-0">
                       <table className="w-full text-left border-separate border-spacing-y-3 min-w-[1000px] px-6 sm:px-0">
                         <thead>
                           <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                            <th className="px-5 py-3">Acautelante / Militar</th>
-                            <th className="px-5 py-3">Descrição do Material</th>
-                            <th className="px-5 py-3">Datas (Saída / Prev.)</th>
-                            <th className="px-5 py-3">Militar Recebedor</th>
-                            <th className="px-5 py-3">Retorno</th>
+                            <th className="px-5 py-3">Responsável</th>
+                            <th className="px-5 py-3">Descrição Material</th>
+                            <th className="px-5 py-3">Datas (Saída/Prev)</th>
+                            <th className="px-5 py-3">Recebido Por</th>
+                            <th className="px-5 py-3">Data Devolução</th>
                             <th className="px-5 py-3 text-center">Status</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredMovements.length > 0 ? filteredMovements.map(m => (
-                            <tr key={m.id} className="bg-slate-50/50 hover:bg-white transition-all text-sm group shadow-sm hover:shadow-md border border-slate-100">
-                              {/* Acautelante */}
-                              <td className="py-5 px-5 rounded-l-2xl border-l border-y border-slate-100">
-                                <div className="font-black uppercase text-slate-800 leading-tight mb-1">{m.rank} {m.warName}</div>
-                                <div className="text-[9px] text-slate-400 font-bold">BM {m.bm}</div>
-                              </td>
-                              
-                              {/* Material */}
-                              <td className="py-5 px-5 border-y border-slate-100">
-                                <div className="font-bold text-slate-700 max-w-xs leading-relaxed">{m.material}</div>
-                                <div className="text-[8px] uppercase font-black text-slate-400 mt-1">{m.type}</div>
-                              </td>
-
-                              {/* Datas Saída / Previsão */}
-                              <td className="py-5 px-5 border-y border-slate-100 whitespace-nowrap">
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-2 text-slate-500">
-                                    <ArrowRight className="w-3 h-3 text-red-400" />
-                                    <span className="text-[10px] font-bold">{formatDateTime(m.dateCheckout)}</span>
-                                  </div>
-                                  {m.estimatedReturnDate && (
-                                    <div className="flex items-center gap-2 text-slate-400">
-                                      <Calendar className="w-3 h-3" />
-                                      <span className="text-[10px] font-medium">Prev: {formatDateOnly(m.estimatedReturnDate)}</span>
+                          {filteredMovements.length > 0 ? filteredMovements.map(m => {
+                            const overdue = isOverdue(m.estimatedReturnDate, m.status);
+                            return (
+                              <tr key={m.id} className={`transition-all text-sm group shadow-sm hover:shadow-md border border-slate-100 ${overdue ? 'bg-red-50/50 hover:bg-red-50' : 'bg-slate-50/50 hover:bg-white'}`}>
+                                <td className="py-5 px-5 rounded-l-2xl border-l border-y border-slate-100">
+                                  <div className="font-black uppercase text-slate-800 leading-tight mb-1">{m.rank} {m.warName}</div>
+                                  <div className="text-[9px] text-slate-400 font-bold">BM {m.bm}</div>
+                                </td>
+                                <td className="py-5 px-5 border-y border-slate-100">
+                                  <div className="font-bold text-slate-700 max-w-xs leading-relaxed">{m.material}</div>
+                                  <div className="text-[8px] uppercase font-black text-slate-400 mt-1">{m.type}</div>
+                                </td>
+                                <td className="py-5 px-5 border-y border-slate-100 whitespace-nowrap">
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2 text-slate-500">
+                                      <ArrowRight className="w-3 h-3 text-red-400" />
+                                      <span className="text-[10px] font-bold">{formatDateTime(m.dateCheckout)}</span>
                                     </div>
-                                  )}
-                                </div>
-                              </td>
-
-                              {/* Recebedor (Se devolvido) */}
-                              <td className="py-5 px-5 border-y border-slate-100">
-                                {m.status === MovementStatus.DEVOLVIDO ? (
-                                  <div>
-                                    <div className="font-black uppercase text-slate-800 leading-tight mb-1 text-xs">
-                                      {m.receiverRank} {m.receiverWarName}
+                                    {m.estimatedReturnDate && (
+                                      <div className={`flex items-center gap-2 ${overdue ? 'text-red-600 font-black' : 'text-slate-400'}`}>
+                                        <Calendar className="w-3 h-3" />
+                                        <span className="text-[10px]">Prev: {formatDateOnly(m.estimatedReturnDate)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-5 px-5 border-y border-slate-100">
+                                  {m.status === MovementStatus.DEVOLVIDO ? (
+                                    <div>
+                                      <div className="font-black uppercase text-slate-800 leading-tight mb-1 text-xs">{m.receiverRank} {m.receiverWarName}</div>
+                                      <div className="text-[9px] text-slate-400 font-bold">BM {m.receiverBm}</div>
                                     </div>
-                                    <div className="text-[9px] text-slate-400 font-bold">BM {m.receiverBm}</div>
-                                  </div>
-                                ) : (
-                                  <span className="text-slate-300 italic text-[10px]">Aguardando devolução...</span>
-                                )}
-                              </td>
-
-                              {/* Data Retorno */}
-                              <td className="py-5 px-5 border-y border-slate-100 whitespace-nowrap">
-                                {m.dateReturn ? (
-                                  <div className="flex items-center gap-2 text-green-600 font-bold">
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span className="text-[10px]">{formatDateTime(m.dateReturn)}</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-slate-300">-</span>
-                                )}
-                              </td>
-
-                              {/* Status */}
-                              <td className="py-5 px-5 rounded-r-2xl border-r border-y border-slate-100 text-center">
-                                <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${m.status === MovementStatus.PENDENTE ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>
-                                  {m.status}
-                                </span>
-                              </td>
-                            </tr>
-                          )) : (
-                            <tr>
-                              <td colSpan={6} className="py-20 text-center text-slate-400 font-medium italic">
-                                Nenhum registro encontrado para os filtros selecionados.
-                              </td>
-                            </tr>
-                          )}
+                                  ) : <span className="text-slate-300 italic text-[10px]">Aguardando...</span>}
+                                </td>
+                                <td className="py-5 px-5 border-y border-slate-100 whitespace-nowrap">
+                                  {m.dateReturn ? (
+                                    <div className="flex items-center gap-2 text-green-600 font-bold">
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span className="text-[10px]">{formatDateTime(m.dateReturn)}</span>
+                                    </div>
+                                  ) : <span className="text-slate-300">-</span>}
+                                </td>
+                                <td className="py-5 px-5 rounded-r-2xl border-r border-y border-slate-100 text-center">
+                                  <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${m.status === MovementStatus.PENDENTE ? (overdue ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200') : 'bg-green-100 text-green-700 border border-green-200'}`}>
+                                    {m.status === MovementStatus.PENDENTE && overdue ? "EM ATRASO" : m.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          }) : <tr><td colSpan={6} className="py-20 text-center text-slate-400 font-medium italic">Nenhum registro encontrado.</td></tr>}
                         </tbody>
                       </table>
                    </div>
                 </div>
 
-                {/* AI Summary Section - Mantida */}
                 <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
                   <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
                     <div className="flex items-center gap-6">
                       <Sparkles className="w-8 h-8 text-yellow-400" />
                       <div>
-                        <h3 className="font-black text-2xl uppercase tracking-tighter">Relatório Inteligente (Gemini)</h3>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Análise automatizada de criticidade</p>
+                        <h3 className="font-black text-2xl uppercase tracking-tighter">Relatório Estratégico (Gemini)</h3>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Resumo automático de criticidade SAO</p>
                       </div>
                     </div>
                     <button 
@@ -639,12 +602,12 @@ const App: React.FC = () => {
                       disabled={isLoadingAi || movements.length === 0}
                       className="bg-white text-slate-950 px-10 py-5 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-3 active:scale-95"
                     >
-                      {isLoadingAi ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-4 h-4" />} Analisar Pendências
+                      {isLoadingAi ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-4 h-4" />} Analisar Carga
                     </button>
                   </div>
                   {aiSummary && (
                     <div className="mt-10 p-8 bg-white/5 rounded-3xl text-slate-200 border border-white/10 animate-in fade-in zoom-in-95 duration-500">
-                       <div className="prose prose-invert prose-sm max-w-none">
+                       <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap font-medium leading-relaxed">
                           {aiSummary}
                        </div>
                     </div>
@@ -655,25 +618,25 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modais */}
       {showReturnConfirm && returnTarget && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
             <h3 className="text-2xl font-black uppercase tracking-tight text-green-600 mb-6 flex items-center gap-2">
-               {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-               Receber Material
+               <CheckCircle2 className="w-6 h-6" /> Devolução de Material
             </h3>
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100 italic text-slate-600 text-sm">
+              "{returnTarget.material}"
+            </div>
             <textarea 
               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-green-500" 
-              placeholder="Observações do estado do material..."
+              placeholder="Descreva o estado do material ou observações pertinentes..."
               value={pendingObservations[returnTarget.id] || ''}
               onChange={(e) => setPendingObservations(prev => ({ ...prev, [returnTarget.id]: e.target.value }))}
             />
             <div className="flex gap-3 mt-6">
               <button disabled={isSaving} onClick={() => setShowReturnConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase hover:bg-slate-200">Cancelar</button>
               <button disabled={isSaving || !hasInitialLoad} onClick={handleReturnFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Confirmar
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Confirmar Recebimento
               </button>
             </div>
           </div>
@@ -684,17 +647,20 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
             <h3 className="text-2xl font-black uppercase tracking-tight text-amber-600 mb-6 flex items-center gap-2">
-              {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <AlertTriangle className="w-6 h-6" />}
-              Confirmar Carga
+              <AlertTriangle className="w-6 h-6" /> Confirmar Carga Militar
             </h3>
             <div className="bg-slate-50 p-6 rounded-2xl border text-sm space-y-4 mb-6">
+               <p className="font-black text-slate-400 uppercase text-[10px]">Material em Retirada:</p>
                <p className="font-bold text-slate-800">{checkoutMaterial}</p>
+               <div className="pt-2 border-t">
+                 <p className="text-[10px] text-slate-400 uppercase font-black">Previsão para Devolução:</p>
+                 <p className="font-black text-red-600">{formatDateOnly(checkoutEstimatedReturn)}</p>
+               </div>
             </div>
             <div className="flex gap-3">
-              <button disabled={isSaving} onClick={() => setShowCheckoutConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase hover:bg-slate-200">Voltar</button>
+              <button disabled={isSaving} onClick={() => setShowCheckoutConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase hover:bg-slate-200">Revisar</button>
               <button disabled={isSaving || !hasInitialLoad} onClick={handleCheckoutFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Confirmar Saída
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Confirmar Saída
               </button>
             </div>
           </div>
@@ -704,7 +670,7 @@ const App: React.FC = () => {
       {showConfig && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-6">
-            <h3 className="font-black uppercase text-slate-800 mb-4 flex items-center gap-2"><Settings className="w-5 h-5" /> URL Planilha</h3>
+            <h3 className="font-black uppercase text-slate-800 mb-4 flex items-center gap-2"><Settings className="w-5 h-5" /> Endpoint da Planilha</h3>
             <input 
               type="text" 
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono mb-4 focus:ring-2 focus:ring-red-500"
@@ -714,13 +680,13 @@ const App: React.FC = () => {
                 localStorage.setItem('sao_sheet_url', e.target.value);
               }}
             />
-            <button onClick={async () => { await handleSyncManually(); setShowConfig(false); }} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-xs uppercase hover:bg-black active:scale-95 transition-all">Salvar e Sincronizar</button>
+            <button onClick={async () => { await handleSyncManually(); setShowConfig(false); }} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-xs uppercase hover:bg-black active:scale-95 transition-all">Salvar Configuração</button>
           </div>
         </div>
       )}
 
       <footer className="p-10 text-center bg-white border-t border-slate-100">
-        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">CBMMG - 6º BBM</span>
+        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">6º Batalhão de Bombeiros Militar - CBMMG</span>
       </footer>
     </div>
   );
