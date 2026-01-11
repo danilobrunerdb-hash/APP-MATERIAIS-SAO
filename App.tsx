@@ -40,11 +40,13 @@ const EMAILJS_CONFIG = {
 
 // --- Helpers ---
 const extractWarName = (fullName: string): string => {
+  if (!fullName) return "";
   const matches = fullName.match(/\b[A-ZÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇ]{2,}\b/g);
   return (matches && matches.length > 0) ? matches.join(' ') : fullName.split(' ')[0];
 };
 
 const formatBM = (value: string): string => {
+  if (!value) return "";
   const digits = value.replace(/\D/g, '').slice(0, 7);
   if (digits.length > 6) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}-${digits.slice(6)}`;
   if (digits.length > 3) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
@@ -55,6 +57,7 @@ const formatDate = (dateStr?: string) => {
   if (!dateStr) return "-";
   try {
     const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00`);
+    if (isNaN(d.getTime())) return dateStr;
     return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
   } catch { return dateStr; }
 };
@@ -63,6 +66,7 @@ const formatDateTime = (dateStr?: string) => {
   if (!dateStr) return "-";
   try {
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
     return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
   } catch { return dateStr; }
 };
@@ -72,10 +76,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'checkout' | 'checkin' | 'history'>('checkout');
   const [movements, setMovements] = useState<Movement[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [checkinSearchTerm, setCheckinSearchTerm] = useState(''); // Novo termo de busca para devolução
+  const [checkinSearchTerm, setCheckinSearchTerm] = useState(''); 
   const [statusFilter, setStatusFilter] = useState<'all' | MovementStatus>(MovementStatus.PENDENTE);
   
-  // URL Permanente como padrão
   const [sheetUrl, setSheetUrl] = useState<string>(localStorage.getItem('sao_sheet_url') || PERMANENT_SHEET_URL);
   const [isSyncing, setIsSyncing] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -92,14 +95,12 @@ const App: React.FC = () => {
   const [checkoutReason, setCheckoutReason] = useState('');
   const [checkoutType, setCheckoutType] = useState<MaterialType>(MaterialType.TERRESTRE);
   const [checkoutEstimatedReturn, setCheckoutEstimatedReturn] = useState(() => {
-    // Define a previsão padrão para o ano de 2026
     const d = new Date();
     d.setFullYear(2026);
     return d.toISOString().split('T')[0];
   });
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
 
-  // Estados para Devolução
   const [pendingObservations, setPendingObservations] = useState<Record<string, string>>({});
   const [returnTarget, setReturnTarget] = useState<Movement | null>(null);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
@@ -113,7 +114,6 @@ const App: React.FC = () => {
     
     emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
 
-    // Sincronização automática na carga
     if (sheetUrl) syncFromSheets();
   }, []);
 
@@ -212,7 +212,6 @@ const App: React.FC = () => {
     await syncToSheets(updated);
     await sendRealEmail({ type: 'RETURN', recipient: { bm: returnTarget.bm, name: returnTarget.name, rank: returnTarget.rank } as any, material: returnTarget.material });
     
-    // Limpar estados
     const newObs = { ...pendingObservations };
     delete newObs[returnTarget.id];
     setPendingObservations(newObs);
@@ -221,22 +220,30 @@ const App: React.FC = () => {
   };
 
   const filteredMovements = useMemo(() => {
+    const term = (searchTerm || '').toLowerCase();
     return movements.filter(m => {
       const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
-      const term = searchTerm.toLowerCase();
-      const matchesSearch = [m.name, m.material, m.bm].some(f => f.toLowerCase().includes(term));
+      const matchesSearch = [
+        m.name || '', 
+        m.material || '', 
+        m.bm || ''
+      ].some(f => f.toLowerCase().includes(term));
       return matchesStatus && matchesSearch;
     });
   }, [movements, searchTerm, statusFilter]);
 
-  // Filtro específico para a aba de Devolução
   const filteredCheckinMovements = useMemo(() => {
+    const term = (checkinSearchTerm || '').toLowerCase();
     return movements
       .filter(m => m.status === MovementStatus.PENDENTE)
       .filter(m => {
-        const term = checkinSearchTerm.toLowerCase();
-        const formattedDate = formatDateTime(m.dateCheckout).toLowerCase();
-        return [m.name, m.material, m.bm, formattedDate].some(f => f.toLowerCase().includes(term));
+        const formattedDate = (formatDateTime(m.dateCheckout) || '').toLowerCase();
+        return [
+          m.name || '', 
+          m.material || '', 
+          m.bm || '', 
+          formattedDate
+        ].some(f => f.toLowerCase().includes(term));
       });
   }, [movements, checkinSearchTerm]);
 
@@ -321,7 +328,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Modal Configuração (Apenas Admin) */}
+      {/* Modal Configuração */}
       {showConfig && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
@@ -490,7 +497,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Novo Campo de Pesquisa na aba Devolução */}
                 <div className="w-full md:w-96 relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input 
@@ -547,7 +553,6 @@ const App: React.FC = () => {
                   </div>
                 ))}
                 
-                {/* Estado Vazio ou Sem Resultados */}
                 {filteredCheckinMovements.length === 0 && (
                   <div className="text-center py-24 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-200">
                     <div className="bg-slate-200 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
