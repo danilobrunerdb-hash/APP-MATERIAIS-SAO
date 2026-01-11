@@ -275,8 +275,14 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msg = `Olá ${returnTarget.rank} ${returnTarget.warName}, confirmamos a devolução do material (${returnTarget.material}) na SAO do 6º BBM. Recebido por: ${authState.user.rank} ${authState.user.warName}.`;
-      await sendMovementEmail(returnTarget.bm, msg, "Devolução Confirmada - SAO 6º BBM");
+      // E-mail para o militar que retirou os materiais
+      const msgBorrower = `Olá ${returnTarget.rank} ${returnTarget.warName}, confirmamos a devolução do material (${returnTarget.material}) na SAO do 6º BBM. Recebido por: ${authState.user.rank} ${authState.user.warName}.`;
+      await sendMovementEmail(returnTarget.bm, msgBorrower, "Devolução Confirmada - SAO 6º BBM");
+
+      // E-mail para o militar que está recebendo o material
+      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu o material (${returnTarget.material}) do militar (${returnTarget.rank} ${returnTarget.warName}) caso verifique inconsistências entre em contato com o SAO ou CBU de serviço hoje`;
+      await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM");
+
     } else {
       setSyncError(true);
       addNotification("Devolução registrada localmente. Sync pendente.", "error");
@@ -379,7 +385,7 @@ const App: React.FC = () => {
               <RefreshCw className="w-5 h-5" />
             </button>
             {authState.user.bm === '161.382-7' && (
-              <button onClick={() => setShowConfig(true)} className="p-2 rounded-xl transition-all hover:bg-red-800">
+              <button onClick={() => { setShowConfig(true); }} className="p-2 rounded-xl transition-all hover:bg-red-800">
                 <Settings className="w-5 h-5" />
               </button>
             )}
