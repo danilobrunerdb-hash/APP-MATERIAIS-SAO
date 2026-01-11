@@ -5,7 +5,7 @@ import { Movement } from './types';
  * INSTRUÇÕES PARA O GOOGLE APPS SCRIPT (GAS) - VERSÃO DE ALTA FIDELIDADE:
  * 
  * 1. No Google Sheets, vá em Extensões > Apps Script.
- * 2. Substitua TODO o código lá por este abaixo:
+ * 2. Substitua TODO o código lá por este abaixo para garantir a persistência:
  * 
  * function doPost(e) {
  *   try {
@@ -14,7 +14,7 @@ import { Movement } from './types';
  *     var sheet = ss.getActiveSheet();
  *     
  *     if (data.action === 'save' && data.movements && Array.isArray(data.movements)) {
- *       sheet.clear(); // Limpa para evitar duplicidade ou lixo
+ *       sheet.clear(); 
  *       var headers = [
  *         "ID", "BM", "Nome", "Nome Guerra", "Posto", 
  *         "Material", "Categoria", "Data Saída", "Previsão", "Motivo", 
@@ -79,10 +79,6 @@ import { Movement } from './types';
  *     return ContentService.createTextOutput("[]").setMimeType(ContentService.MimeType.JSON);
  *   }
  * }
- * 
- * 3. Clique em "Implantar" > "Nova Implantação".
- * 4. Tipo: Web App | Quem pode acessar: "Qualquer um".
- * 5. Copie a nova URL gerada e cole nas configurações do aplicativo.
  */
 
 export const saveToSheets = async (url: string, movements: Movement[]) => {
@@ -94,7 +90,8 @@ export const saveToSheets = async (url: string, movements: Movement[]) => {
       body: JSON.stringify({ action: 'save', movements }),
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     });
-    return response.ok;
+    const text = await response.text();
+    return response.ok && text === "Success";
   } catch (error) {
     console.error("Erro ao salvar dados remotos:", error);
     return false;

@@ -37,7 +37,7 @@ import {
   AlertOctagon
 } from 'lucide-react';
 
-const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzlAE_yo3o6mo7X-4x4oeE0zD8S16gbqi0zEty5IyebTE7ww178_u1g8bOdffB_ApEt/exec";
+const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxYLn5e62ejJO784KmCoTSQ5cRe7Q7jLoqdO5QlzZljnC392ppHeUKlqbRjUEYaqzVD/exec";
 
 const EMAILJS_CONFIG = {
   SERVICE_ID: "TESTE SAO", 
