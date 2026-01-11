@@ -8,7 +8,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    target: 'esnext'
+    target: 'esnext',
+    rollupOptions: {
+      input: {
+        main: './index.html',
+      },
+    },
   },
   server: {
     historyApiFallback: true,
