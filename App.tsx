@@ -36,11 +36,11 @@ import {
 
 const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzlAE_yo3o6mo7X-4x4oeE0zD8S16gbqi0zEty5IyebTE7ww178_u1g8bOdffB_ApEt/exec";
 
-// Configuração atualizada com a chave fornecida pelo usuário
+// Configuração atualizada com a nova chave fornecida (F0L0nHY7l2OI-DgpO)
 const EMAILJS_CONFIG = {
   SERVICE_ID: "TESTE SAO", 
   TEMPLATE_ID: "template_epzy7h4", 
-  PUBLIC_KEY: "E0VFVhDaGcvZiH2zD"
+  PUBLIC_KEY: "F0L0nHY7l2OI-DgpO"
 };
 
 const formatBM = (value: string): string => {
@@ -105,7 +105,6 @@ const App: React.FC = () => {
   const [returnTarget, setReturnTarget] = useState<Movement | null>(null);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
-  // Função para adicionar notificações visuais (Toasts)
   const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
     setNotifications(prev => [...prev, { message, type, id }]);
@@ -114,13 +113,9 @@ const App: React.FC = () => {
     }, 5000);
   };
 
-  // Função para envio de e-mail automatizado via EmailJS
   const sendMovementEmail = async (toBm: string, messageBody: string, subjectTitle: string) => {
-    // Monta o e-mail no formato: numeroBM@bombeiros.mg.gov.br (removendo pontos e traços)
     const email = `${toBm.replace(/\D/g, '')}@bombeiros.mg.gov.br`;
-    
     try {
-      // De acordo com a documentação do @emailjs/browser, o envio deve conter os parâmetros da template
       await emailjs.send(
         EMAILJS_CONFIG.SERVICE_ID,
         EMAILJS_CONFIG.TEMPLATE_ID,
@@ -128,17 +123,15 @@ const App: React.FC = () => {
           to_email: email,
           subject: subjectTitle,
           message: messageBody,
-          // Caso a template use outros nomes de campos:
-          user_email: email,
+          // Garante que o conteúdo seja mapeado corretamente para a template
           content: messageBody
         },
         EMAILJS_CONFIG.PUBLIC_KEY
       );
-      console.log(`E-mail de notificação enviado para: ${email}`);
       addNotification(`E-mail enviado para ${email}`, 'success');
     } catch (error) {
-      console.error("Falha ao enviar e-mail via EmailJS:", error);
-      addNotification(`Falha ao enviar e-mail para ${email}. Verifique a configuração da chave.`, 'error');
+      console.error("Erro EmailJS:", error);
+      addNotification(`Falha no e-mail (${email}). Verifique as chaves.`, 'error');
     }
   };
 
@@ -172,7 +165,6 @@ const App: React.FC = () => {
       const savedUser = localStorage.getItem('sao_current_user');
       if (savedUser) setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
       await syncData();
-      // Inicializa o EmailJS com a chave pública
       emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
     };
 
@@ -218,13 +210,12 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // MENSAGEM DE E-MAIL SOLICITADA (SAÍDA)
-      const emailMessage = `Olá (${authState.user.rank} ${authState.user.name}) registramos uma retirada de material na SAO do 6º BBM em seu nome (${checkoutMaterial}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
-      
-      await sendMovementEmail(authState.user.bm, emailMessage, "Retirada de Material - SAO 6º BBM");
+      // MENSAGEM SOLICITADA PARA RETIRADA
+      const msg = `Olá (${authState.user.rank} ${authState.user.name} registramos uma retirada de material na SAO do 6º BBM em seu nome (${checkoutMaterial}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
+      await sendMovementEmail(authState.user.bm, msg, "Retirada de Material - SAO 6º BBM");
     } else {
       setSyncError(true);
-      addNotification("Erro ao salvar na planilha. E-mail não enviado.", "error");
+      addNotification("Erro ao salvar dados. E-mail não enviado.", "error");
     }
     
     setCheckoutMaterial(''); 
@@ -263,14 +254,12 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // MENSAGEM DE E-MAIL SOLICITADA (RECEBIMENTO)
-      // O e-mail vai para quem está logado (o militar da SAO que atestou o recebimento)
-      const emailMessage = `Olá ${authState.user.rank} ${authState.user.name} registramos que você recebeu os seguintes materiais na SAO do 6º BBM acautelados por ${returnTarget.rank} ${returnTarget.name}: (${returnTarget.material}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
-      
-      await sendMovementEmail(authState.user.bm, emailMessage, "Recebimento de Material - SAO 6º BBM");
+      // MENSAGEM SOLICITADA PARA RECEBIMENTO
+      const msg = `Olá ${authState.user.rank} ${authState.user.name} registramos que você recebeu os seguintes materiais na SAO do 6º BBM acautelados por ${returnTarget.rank} ${returnTarget.name}: (${returnTarget.material}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
+      await sendMovementEmail(authState.user.bm, msg, "Recebimento de Material - SAO 6º BBM");
     } else {
       setSyncError(true);
-      addNotification("Erro ao salvar na planilha. E-mail não enviado.", "error");
+      addNotification("Erro ao salvar dados. E-mail não enviado.", "error");
     }
     
     setReturnTarget(null);
@@ -381,7 +370,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Container de Notificações Toasts */}
+      {/* Container de Toasts */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[300] flex flex-col gap-2 w-full max-w-sm px-4">
         {notifications.map(n => (
           <div key={n.id} className={`p-4 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider animate-in slide-in-from-bottom-2 duration-300 border backdrop-blur-md ${n.type === 'success' ? 'bg-green-500/90 text-white border-green-400' : 'bg-red-600/90 text-white border-red-500'}`}>
@@ -553,7 +542,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modais com Trava de Salvamento e E-mail */}
+      {/* Modais */}
       {showReturnConfirm && returnTarget && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
