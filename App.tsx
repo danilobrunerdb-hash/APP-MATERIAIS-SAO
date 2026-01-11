@@ -31,7 +31,9 @@ import {
   Save,
   Mail,
   Check,
-  AlertCircle
+  AlertCircle,
+  Filter,
+  ArrowRight
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzlAE_yo3o6mo7X-4x4oeE0zD8S16gbqi0zEty5IyebTE7ww178_u1g8bOdffB_ApEt/exec";
@@ -60,6 +62,20 @@ const formatDateTime = (dateStr?: string) => {
   } catch { return dateStr; }
 };
 
+const formatDateOnly = (dateStr?: string) => {
+  if (!dateStr) return "-";
+  try {
+    // Se for formato YYYY-MM-DD simples do input date
+    if (dateStr.length === 10 && dateStr.includes('-')) {
+      const [y, m, d] = dateStr.split('-');
+      return `${d}/${m}/${y}`;
+    }
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+  } catch { return dateStr; }
+};
+
 interface Notification {
   message: string;
   type: 'success' | 'error';
@@ -72,7 +88,7 @@ const App: React.FC = () => {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [checkinSearchTerm, setCheckinSearchTerm] = useState(''); 
-  const [statusFilter, setStatusFilter] = useState<'all' | MovementStatus>(MovementStatus.PENDENTE);
+  const [statusFilter, setStatusFilter] = useState<'all' | MovementStatus>('all');
   
   const [sheetUrl, setSheetUrl] = useState<string>(localStorage.getItem('sao_sheet_url') || PERMANENT_SHEET_URL);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -123,7 +139,6 @@ const App: React.FC = () => {
           to_email: email,
           subject: subjectTitle,
           message: messageBody,
-          // Garante que o conteúdo seja mapeado corretamente para a template
           content: messageBody
         },
         EMAILJS_CONFIG.PUBLIC_KEY
@@ -210,7 +225,6 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // MENSAGEM SOLICITADA PARA RETIRADA
       const msg = `Olá (${authState.user.rank} ${authState.user.name} registramos uma retirada de material na SAO do 6º BBM em seu nome (${checkoutMaterial}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
       await sendMovementEmail(authState.user.bm, msg, "Retirada de Material - SAO 6º BBM");
     } else {
@@ -254,7 +268,6 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // MENSAGEM SOLICITADA PARA RECEBIMENTO
       const msg = `Olá ${authState.user.rank} ${authState.user.name} registramos que você recebeu os seguintes materiais na SAO do 6º BBM acautelados por ${returnTarget.rank} ${returnTarget.name}: (${returnTarget.material}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
       await sendMovementEmail(authState.user.bm, msg, "Recebimento de Material - SAO 6º BBM");
     } else {
@@ -275,7 +288,9 @@ const App: React.FC = () => {
         m.name || '', 
         m.material || '', 
         m.bm || '', 
-        m.reason || ''
+        m.reason || '',
+        m.warName || '',
+        m.receiverWarName || ''
       ].some(f => f.toLowerCase().includes(term));
       return matchesStatus && matchesSearch;
     });
@@ -370,7 +385,6 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Container de Toasts */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[300] flex flex-col gap-2 w-full max-w-sm px-4">
         {notifications.map(n => (
           <div key={n.id} className={`p-4 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider animate-in slide-in-from-bottom-2 duration-300 border backdrop-blur-md ${n.type === 'success' ? 'bg-green-500/90 text-white border-green-400' : 'bg-red-600/90 text-white border-red-500'}`}>
@@ -482,44 +496,137 @@ const App: React.FC = () => {
           {activeTab === 'history' && (
              <div className="space-y-6">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-                   <div className="flex flex-col lg:flex-row gap-4 mb-8">
-                      <div className="flex-1 relative">
+                   {/* Filtros e Busca */}
+                   <div className="flex flex-col xl:flex-row gap-6 mb-8 items-start xl:items-center">
+                      <div className="flex-1 w-full relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="text" placeholder="Filtrar histórico..." className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input 
+                          type="text" 
+                          placeholder="Pesquisar por material, militar, BM..." 
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 focus:ring-red-500 transition-all" 
+                          value={searchTerm} 
+                          onChange={(e) => setSearchTerm(e.target.value)} 
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200">
+                        <button 
+                          onClick={() => setStatusFilter('all')}
+                          className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-white/50'}`}
+                        >
+                          Todos
+                        </button>
+                        <button 
+                          onClick={() => setStatusFilter(MovementStatus.PENDENTE)}
+                          className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${statusFilter === MovementStatus.PENDENTE ? 'bg-amber-500 text-white shadow-md' : 'text-amber-600 hover:bg-amber-50'}`}
+                        >
+                          <Clock className="w-3.5 h-3.5" /> Pendentes
+                        </button>
+                        <button 
+                          onClick={() => setStatusFilter(MovementStatus.DEVOLVIDO)}
+                          className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${statusFilter === MovementStatus.DEVOLVIDO ? 'bg-green-600 text-white shadow-md' : 'text-green-600 hover:bg-green-50'}`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Devolvidos
+                        </button>
                       </div>
                    </div>
-                   <div className="overflow-x-auto">
-                      <table className="w-full text-left border-separate border-spacing-y-2">
+
+                   {/* Tabela de Histórico Refatorada */}
+                   <div className="overflow-x-auto -mx-6 sm:mx-0">
+                      <table className="w-full text-left border-separate border-spacing-y-3 min-w-[1000px] px-6 sm:px-0">
                         <thead>
                           <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                            <th className="px-4 py-2">Responsável</th>
-                            <th className="px-4 py-2">Material</th>
-                            <th className="px-4 py-2">Status</th>
+                            <th className="px-5 py-3">Acautelante / Militar</th>
+                            <th className="px-5 py-3">Descrição do Material</th>
+                            <th className="px-5 py-3">Datas (Saída / Prev.)</th>
+                            <th className="px-5 py-3">Militar Recebedor</th>
+                            <th className="px-5 py-3">Retorno</th>
+                            <th className="px-5 py-3 text-center">Status</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredMovements.map(m => (
-                            <tr key={m.id} className="bg-slate-50/50 hover:bg-white transition-all text-sm group">
-                              <td className="py-5 px-4 rounded-l-2xl border-l border-y border-slate-100">
-                                <div className="font-black uppercase text-slate-800">{m.rank} {m.warName}</div>
-                                <div className="text-[9px] text-slate-400">BM {m.bm}</div>
+                          {filteredMovements.length > 0 ? filteredMovements.map(m => (
+                            <tr key={m.id} className="bg-slate-50/50 hover:bg-white transition-all text-sm group shadow-sm hover:shadow-md border border-slate-100">
+                              {/* Acautelante */}
+                              <td className="py-5 px-5 rounded-l-2xl border-l border-y border-slate-100">
+                                <div className="font-black uppercase text-slate-800 leading-tight mb-1">{m.rank} {m.warName}</div>
+                                <div className="text-[9px] text-slate-400 font-bold">BM {m.bm}</div>
                               </td>
-                              <td className="py-5 px-4 border-y border-slate-100 font-bold text-slate-700">{m.material}</td>
-                              <td className="py-5 px-4 rounded-r-2xl border-r border-y border-slate-100">
-                                <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${m.status === MovementStatus.PENDENTE ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{m.status}</span>
+                              
+                              {/* Material */}
+                              <td className="py-5 px-5 border-y border-slate-100">
+                                <div className="font-bold text-slate-700 max-w-xs leading-relaxed">{m.material}</div>
+                                <div className="text-[8px] uppercase font-black text-slate-400 mt-1">{m.type}</div>
+                              </td>
+
+                              {/* Datas Saída / Previsão */}
+                              <td className="py-5 px-5 border-y border-slate-100 whitespace-nowrap">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2 text-slate-500">
+                                    <ArrowRight className="w-3 h-3 text-red-400" />
+                                    <span className="text-[10px] font-bold">{formatDateTime(m.dateCheckout)}</span>
+                                  </div>
+                                  {m.estimatedReturnDate && (
+                                    <div className="flex items-center gap-2 text-slate-400">
+                                      <Calendar className="w-3 h-3" />
+                                      <span className="text-[10px] font-medium">Prev: {formatDateOnly(m.estimatedReturnDate)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Recebedor (Se devolvido) */}
+                              <td className="py-5 px-5 border-y border-slate-100">
+                                {m.status === MovementStatus.DEVOLVIDO ? (
+                                  <div>
+                                    <div className="font-black uppercase text-slate-800 leading-tight mb-1 text-xs">
+                                      {m.receiverRank} {m.receiverWarName}
+                                    </div>
+                                    <div className="text-[9px] text-slate-400 font-bold">BM {m.receiverBm}</div>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-300 italic text-[10px]">Aguardando devolução...</span>
+                                )}
+                              </td>
+
+                              {/* Data Retorno */}
+                              <td className="py-5 px-5 border-y border-slate-100 whitespace-nowrap">
+                                {m.dateReturn ? (
+                                  <div className="flex items-center gap-2 text-green-600 font-bold">
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span className="text-[10px]">{formatDateTime(m.dateReturn)}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-300">-</span>
+                                )}
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-5 px-5 rounded-r-2xl border-r border-y border-slate-100 text-center">
+                                <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${m.status === MovementStatus.PENDENTE ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>
+                                  {m.status}
+                                </span>
                               </td>
                             </tr>
-                          ))}
+                          )) : (
+                            <tr>
+                              <td colSpan={6} className="py-20 text-center text-slate-400 font-medium italic">
+                                Nenhum registro encontrado para os filtros selecionados.
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                    </div>
                 </div>
+
+                {/* AI Summary Section - Mantida */}
                 <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
                   <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
                     <div className="flex items-center gap-6">
                       <Sparkles className="w-8 h-8 text-yellow-400" />
                       <div>
                         <h3 className="font-black text-2xl uppercase tracking-tighter">Relatório Inteligente (Gemini)</h3>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Análise automatizada de criticidade</p>
                       </div>
                     </div>
                     <button 
@@ -530,12 +637,18 @@ const App: React.FC = () => {
                         setIsLoadingAi(false);
                       }} 
                       disabled={isLoadingAi || movements.length === 0}
-                      className="bg-white text-slate-950 px-10 py-5 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-3"
+                      className="bg-white text-slate-950 px-10 py-5 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-3 active:scale-95"
                     >
                       {isLoadingAi ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-4 h-4" />} Analisar Pendências
                     </button>
                   </div>
-                  {aiSummary && <div className="mt-10 p-8 bg-white/5 rounded-3xl text-slate-200">{aiSummary}</div>}
+                  {aiSummary && (
+                    <div className="mt-10 p-8 bg-white/5 rounded-3xl text-slate-200 border border-white/10 animate-in fade-in zoom-in-95 duration-500">
+                       <div className="prose prose-invert prose-sm max-w-none">
+                          {aiSummary}
+                       </div>
+                    </div>
+                  )}
                 </div>
              </div>
           )}
@@ -551,14 +664,14 @@ const App: React.FC = () => {
                Receber Material
             </h3>
             <textarea 
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none" 
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-green-500" 
               placeholder="Observações do estado do material..."
               value={pendingObservations[returnTarget.id] || ''}
               onChange={(e) => setPendingObservations(prev => ({ ...prev, [returnTarget.id]: e.target.value }))}
             />
             <div className="flex gap-3 mt-6">
-              <button disabled={isSaving} onClick={() => setShowReturnConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase">Cancelar</button>
-              <button disabled={isSaving || !hasInitialLoad} onClick={handleReturnFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2">
+              <button disabled={isSaving} onClick={() => setShowReturnConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase hover:bg-slate-200">Cancelar</button>
+              <button disabled={isSaving || !hasInitialLoad} onClick={handleReturnFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Confirmar
               </button>
@@ -578,8 +691,8 @@ const App: React.FC = () => {
                <p className="font-bold text-slate-800">{checkoutMaterial}</p>
             </div>
             <div className="flex gap-3">
-              <button disabled={isSaving} onClick={() => setShowCheckoutConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase">Voltar</button>
-              <button disabled={isSaving || !hasInitialLoad} onClick={handleCheckoutFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2">
+              <button disabled={isSaving} onClick={() => setShowCheckoutConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase hover:bg-slate-200">Voltar</button>
+              <button disabled={isSaving || !hasInitialLoad} onClick={handleCheckoutFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 Confirmar Saída
               </button>
@@ -591,17 +704,17 @@ const App: React.FC = () => {
       {showConfig && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-6">
-            <h3 className="font-black uppercase text-slate-800 mb-4">Configuração URL Planilha</h3>
+            <h3 className="font-black uppercase text-slate-800 mb-4 flex items-center gap-2"><Settings className="w-5 h-5" /> URL Planilha</h3>
             <input 
               type="text" 
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono mb-4"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono mb-4 focus:ring-2 focus:ring-red-500"
               value={sheetUrl}
               onChange={(e) => {
                 setSheetUrl(e.target.value);
                 localStorage.setItem('sao_sheet_url', e.target.value);
               }}
             />
-            <button onClick={async () => { await handleSyncManually(); setShowConfig(false); }} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-xs uppercase">Salvar e Sincronizar</button>
+            <button onClick={async () => { await handleSyncManually(); setShowConfig(false); }} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-xs uppercase hover:bg-black active:scale-95 transition-all">Salvar e Sincronizar</button>
           </div>
         </div>
       )}
