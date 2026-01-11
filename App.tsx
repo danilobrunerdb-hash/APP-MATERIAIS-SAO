@@ -27,7 +27,9 @@ import {
   Database,
   User,
   Wifi,
-  WifiOff
+  WifiOff,
+  Save,
+  Mail
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzlAE_yo3o6mo7X-4x4oeE0zD8S16gbqi0zEty5IyebTE7ww178_u1g8bOdffB_ApEt/exec";
@@ -74,10 +76,12 @@ const App: React.FC = () => {
   
   const [sheetUrl, setSheetUrl] = useState<string>(localStorage.getItem('sao_sheet_url') || PERMANENT_SHEET_URL);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [syncError, setSyncError] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
@@ -100,7 +104,26 @@ const App: React.FC = () => {
   const [returnTarget, setReturnTarget] = useState<Movement | null>(null);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
-  // Função de sincronização memorizada
+  // Função para envio de e-mail automatizado
+  const sendMovementEmail = async (toBm: string, message: string, subject: string) => {
+    const email = `${toBm.replace(/\D/g, '')}@bombeiros.mg.gov.br`;
+    try {
+      await emailjs.send(
+        EMAILJS_CONFIG.SERVICE_ID,
+        EMAILJS_CONFIG.TEMPLATE_ID,
+        {
+          to_email: email,
+          subject: subject,
+          message: message
+        },
+        EMAILJS_CONFIG.PUBLIC_KEY
+      );
+      console.log(`E-mail enviado com sucesso para: ${email}`);
+    } catch (error) {
+      console.error("Falha ao enviar e-mail:", error);
+    }
+  };
+
   const syncData = useCallback(async (showLoader = true) => {
     if (showLoader) setIsSyncing(true);
     const data = await fetchFromSheets(sheetUrl);
@@ -109,38 +132,35 @@ const App: React.FC = () => {
       localStorage.setItem('sao_movements', JSON.stringify(data));
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
+      setHasInitialLoad(true);
     } else {
       setSyncError(true);
+      const cached = localStorage.getItem('sao_movements');
+      if (cached && !hasInitialLoad) {
+        setMovements(JSON.parse(cached));
+        setHasInitialLoad(true);
+      }
     }
     if (showLoader) setIsSyncing(false);
-  }, [sheetUrl]);
+  }, [sheetUrl, hasInitialLoad]);
 
-  // Monitor de conexão e Auto-Sync 24h
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Inicialização
     const initApp = async () => {
       const savedUser = localStorage.getItem('sao_current_user');
       if (savedUser) setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
-      
-      const local = localStorage.getItem('sao_movements');
-      if (local) setMovements(JSON.parse(local));
-
       await syncData();
       emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
     };
 
     initApp();
 
-    // Timer de 5 minutos para manter o terminal atualizado (Operação 24h)
     const autoSyncInterval = setInterval(() => {
-      if (navigator.onLine) {
-        syncData(false);
-      }
+      if (navigator.onLine) syncData(false);
     }, 5 * 60 * 1000);
 
     return () => {
@@ -153,7 +173,9 @@ const App: React.FC = () => {
   const handleSyncManually = () => syncData(true);
 
   const handleCheckoutFinal = async () => {
-    if (!authState.user) return;
+    if (!authState.user || !hasInitialLoad) return;
+    setIsSaving(true);
+
     const newMovement: Movement = {
       id: Math.random().toString(36).substr(2, 9),
       bm: authState.user.bm, 
@@ -163,7 +185,7 @@ const App: React.FC = () => {
       dateCheckout: new Date().toISOString(),
       estimatedReturnDate: checkoutEstimatedReturn, 
       material: checkoutMaterial,
-      reason: checkoutReason || 'TPB', 
+      reason: checkoutReason || 'Não informado', 
       type: checkoutType, 
       status: MovementStatus.PENDENTE
     };
@@ -176,6 +198,10 @@ const App: React.FC = () => {
     if (success) {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
+      
+      // Enviar e-mail de confirmação de acautelamento
+      const msg = `Olá (${authState.user.rank} ${authState.user.name}) registramos uma retirada de material na SAO do 6º BBM em seu nome (${checkoutMaterial}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
+      sendMovementEmail(authState.user.bm, msg, "Retirada de Material - SAO 6º BBM");
     } else {
       setSyncError(true);
     }
@@ -183,11 +209,13 @@ const App: React.FC = () => {
     setCheckoutMaterial(''); 
     setCheckoutReason(''); 
     setShowCheckoutConfirm(false);
+    setIsSaving(false);
     setActiveTab('history');
   };
 
   const handleReturnFinal = async () => {
-    if (!authState.user || !returnTarget) return;
+    if (!authState.user || !returnTarget || !hasInitialLoad) return;
+    setIsSaving(true);
     const obs = pendingObservations[returnTarget.id] || 'Sem observações.';
     
     const updated = movements.map(m => {
@@ -213,12 +241,17 @@ const App: React.FC = () => {
     if (success) {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
+      
+      // Enviar e-mail de confirmação de recebimento para o militar da SAO (quem está logado)
+      const msg = `Olá ${authState.user.rank} ${authState.user.name} registramos que você recebeu os seguintes materiais na SAO do 6º BBM acautelados por ${returnTarget.rank} ${returnTarget.name}: (${returnTarget.material}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
+      sendMovementEmail(authState.user.bm, msg, "Recebimento de Material - SAO 6º BBM");
     } else {
       setSyncError(true);
     }
     
     setReturnTarget(null);
     setShowReturnConfirm(false);
+    setIsSaving(false);
   };
 
   const filteredMovements = useMemo(() => {
@@ -287,9 +320,13 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-red-100 bg-red-900/60 px-2 py-0.5 rounded-full border border-red-400/30 animate-pulse">
                   <WifiOff className="w-3 h-3" /> Sem Internet
                 </div>
+              ) : !hasInitialLoad ? (
+                <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-white bg-slate-900/40 px-2 py-0.5 rounded-full border border-white/20">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Conectando...
+                </div>
               ) : syncError ? (
                 <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-amber-200 bg-amber-900/40 px-2 py-0.5 rounded-full border border-amber-400/30">
-                  <CloudOff className="w-3 h-3" /> Planilha Offline
+                  <CloudOff className="w-3 h-3" /> Banco Instável
                 </div>
               ) : (
                 <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-green-300 bg-green-950/30 px-2 py-0.5 rounded-full border border-green-500/20">
@@ -323,10 +360,6 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Restante do componente permanece igual com as funcionalidades de abas e modais */}
-      {/* ... (Omitido para brevidade, mas mantendo a lógica de abas) ... */}
-      
-      {/* O componente completo continua aqui como estava, mas com as melhorias de sync no topo */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-8 space-y-6">
         <div className="flex bg-white rounded-2xl shadow-sm border p-1 sticky top-20 z-40 backdrop-blur-md bg-white/90">
           {[
@@ -381,13 +414,14 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <button type="submit" className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-5 rounded-2xl shadow-xl uppercase flex items-center justify-center gap-3 border-b-4 border-red-900 transition-all active:scale-95">
-                  <PlusCircle className="w-5 h-5" /> Registrar Acautelamento
+                <button type="submit" disabled={!hasInitialLoad} className="w-full bg-red-700 hover:bg-red-800 disabled:bg-slate-300 text-white font-bold py-5 rounded-2xl shadow-xl uppercase flex items-center justify-center gap-3 border-b-4 border-red-900 transition-all active:scale-95">
+                  {!hasInitialLoad ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
+                  {!hasInitialLoad ? "Carregando Banco..." : "Registrar Acautelamento"}
                 </button>
               </form>
             </div>
           )}
-          {/* ... Outras abas permanecem com sua lógica original ... */}
+
           {activeTab === 'checkin' && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 min-h-[500px]">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-4 border-b gap-4">
@@ -398,7 +432,7 @@ const App: React.FC = () => {
                 </div>
                 <div className="w-full md:w-96 relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <input type="text" placeholder="Pesquisar..." className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium outline-none focus:ring-2 focus:ring-red-500" value={checkinSearchTerm} onChange={(e) => setCheckinSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Pesquisar..." className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium outline-none" value={checkinSearchTerm} onChange={(e) => setCheckinSearchTerm(e.target.value)} />
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4">
@@ -421,10 +455,10 @@ const App: React.FC = () => {
               </div>
             </div>
           )}
+
           {activeTab === 'history' && (
              <div className="space-y-6">
                 <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-                   {/* Interface de histórico mantida igual para consistência */}
                    <div className="flex flex-col lg:flex-row gap-4 mb-8">
                       <div className="flex-1 relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -457,7 +491,6 @@ const App: React.FC = () => {
                       </table>
                    </div>
                 </div>
-                {/* Bloco de Análise IA mantido igual */}
                 <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
                   <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
                     <div className="flex items-center gap-6">
@@ -486,11 +519,13 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modais omitidos mas assumidos presentes na implementação final para o app completo */}
       {showReturnConfirm && returnTarget && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
-            <h3 className="text-2xl font-black uppercase tracking-tight text-green-600 mb-6">Receber Material</h3>
+            <h3 className="text-2xl font-black uppercase tracking-tight text-green-600 mb-6 flex items-center gap-2">
+               {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
+               Receber Material
+            </h3>
             <textarea 
               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none" 
               placeholder="Observações do estado do material..."
@@ -498,8 +533,11 @@ const App: React.FC = () => {
               onChange={(e) => setPendingObservations(prev => ({ ...prev, [returnTarget.id]: e.target.value }))}
             />
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowReturnConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase">Cancelar</button>
-              <button onClick={handleReturnFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl">Confirmar</button>
+              <button disabled={isSaving} onClick={() => setShowReturnConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase">Cancelar</button>
+              <button disabled={isSaving || !hasInitialLoad} onClick={handleReturnFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Confirmar
+              </button>
             </div>
           </div>
         </div>
@@ -508,13 +546,19 @@ const App: React.FC = () => {
       {showCheckoutConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
-            <h3 className="text-2xl font-black uppercase tracking-tight text-amber-600 mb-6">Confirmar Carga</h3>
+            <h3 className="text-2xl font-black uppercase tracking-tight text-amber-600 mb-6 flex items-center gap-2">
+              {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <AlertTriangle className="w-6 h-6" />}
+              Confirmar Carga
+            </h3>
             <div className="bg-slate-50 p-6 rounded-2xl border text-sm space-y-4 mb-6">
-               <p className="font-bold">{checkoutMaterial}</p>
+               <p className="font-bold text-slate-800">{checkoutMaterial}</p>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setShowCheckoutConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase">Voltar</button>
-              <button onClick={handleCheckoutFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl">Confirmar Saída</button>
+              <button disabled={isSaving} onClick={() => setShowCheckoutConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase">Voltar</button>
+              <button disabled={isSaving || !hasInitialLoad} onClick={handleCheckoutFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Confirmar Saída
+              </button>
             </div>
           </div>
         </div>
