@@ -29,11 +29,14 @@ import {
   Wifi,
   WifiOff,
   Save,
-  Mail
+  Mail,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzlAE_yo3o6mo7X-4x4oeE0zD8S16gbqi0zEty5IyebTE7ww178_u1g8bOdffB_ApEt/exec";
 
+// Configuração atualizada com a chave fornecida pelo usuário
 const EMAILJS_CONFIG = {
   SERVICE_ID: "TESTE SAO", 
   TEMPLATE_ID: "template_epzy7h4", 
@@ -48,15 +51,6 @@ const formatBM = (value: string): string => {
   return digits;
 };
 
-const formatDate = (dateStr?: string) => {
-  if (!dateStr) return "-";
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
-  } catch { return dateStr; }
-};
-
 const formatDateTime = (dateStr?: string) => {
   if (!dateStr) return "-";
   try {
@@ -65,6 +59,12 @@ const formatDateTime = (dateStr?: string) => {
     return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
   } catch { return dateStr; }
 };
+
+interface Notification {
+  message: string;
+  type: 'success' | 'error';
+  id: number;
+}
 
 const App: React.FC = () => {
   const [authState, setAuthState] = useState<AuthState>({ user: null, isVisitor: false });
@@ -82,6 +82,7 @@ const App: React.FC = () => {
   const [syncError, setSyncError] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
@@ -104,23 +105,40 @@ const App: React.FC = () => {
   const [returnTarget, setReturnTarget] = useState<Movement | null>(null);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
-  // Função para envio de e-mail automatizado
-  const sendMovementEmail = async (toBm: string, message: string, subject: string) => {
+  // Função para adicionar notificações visuais (Toasts)
+  const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now();
+    setNotifications(prev => [...prev, { message, type, id }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  };
+
+  // Função para envio de e-mail automatizado via EmailJS
+  const sendMovementEmail = async (toBm: string, messageBody: string, subjectTitle: string) => {
+    // Monta o e-mail no formato: numeroBM@bombeiros.mg.gov.br (removendo pontos e traços)
     const email = `${toBm.replace(/\D/g, '')}@bombeiros.mg.gov.br`;
+    
     try {
+      // De acordo com a documentação do @emailjs/browser, o envio deve conter os parâmetros da template
       await emailjs.send(
         EMAILJS_CONFIG.SERVICE_ID,
         EMAILJS_CONFIG.TEMPLATE_ID,
         {
           to_email: email,
-          subject: subject,
-          message: message
+          subject: subjectTitle,
+          message: messageBody,
+          // Caso a template use outros nomes de campos:
+          user_email: email,
+          content: messageBody
         },
         EMAILJS_CONFIG.PUBLIC_KEY
       );
-      console.log(`E-mail enviado com sucesso para: ${email}`);
+      console.log(`E-mail de notificação enviado para: ${email}`);
+      addNotification(`E-mail enviado para ${email}`, 'success');
     } catch (error) {
-      console.error("Falha ao enviar e-mail:", error);
+      console.error("Falha ao enviar e-mail via EmailJS:", error);
+      addNotification(`Falha ao enviar e-mail para ${email}. Verifique a configuração da chave.`, 'error');
     }
   };
 
@@ -154,6 +172,7 @@ const App: React.FC = () => {
       const savedUser = localStorage.getItem('sao_current_user');
       if (savedUser) setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
       await syncData();
+      // Inicializa o EmailJS com a chave pública
       emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
     };
 
@@ -199,11 +218,13 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // Enviar e-mail de confirmação de acautelamento
-      const msg = `Olá (${authState.user.rank} ${authState.user.name}) registramos uma retirada de material na SAO do 6º BBM em seu nome (${checkoutMaterial}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
-      sendMovementEmail(authState.user.bm, msg, "Retirada de Material - SAO 6º BBM");
+      // MENSAGEM DE E-MAIL SOLICITADA (SAÍDA)
+      const emailMessage = `Olá (${authState.user.rank} ${authState.user.name}) registramos uma retirada de material na SAO do 6º BBM em seu nome (${checkoutMaterial}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
+      
+      await sendMovementEmail(authState.user.bm, emailMessage, "Retirada de Material - SAO 6º BBM");
     } else {
       setSyncError(true);
+      addNotification("Erro ao salvar na planilha. E-mail não enviado.", "error");
     }
     
     setCheckoutMaterial(''); 
@@ -242,11 +263,14 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // Enviar e-mail de confirmação de recebimento para o militar da SAO (quem está logado)
-      const msg = `Olá ${authState.user.rank} ${authState.user.name} registramos que você recebeu os seguintes materiais na SAO do 6º BBM acautelados por ${returnTarget.rank} ${returnTarget.name}: (${returnTarget.material}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
-      sendMovementEmail(authState.user.bm, msg, "Recebimento de Material - SAO 6º BBM");
+      // MENSAGEM DE E-MAIL SOLICITADA (RECEBIMENTO)
+      // O e-mail vai para quem está logado (o militar da SAO que atestou o recebimento)
+      const emailMessage = `Olá ${authState.user.rank} ${authState.user.name} registramos que você recebeu os seguintes materiais na SAO do 6º BBM acautelados por ${returnTarget.rank} ${returnTarget.name}: (${returnTarget.material}), caso não reconheça fineza fazer contato com o militar da SAO de serviço hoje, para regularizar a situação`;
+      
+      await sendMovementEmail(authState.user.bm, emailMessage, "Recebimento de Material - SAO 6º BBM");
     } else {
       setSyncError(true);
+      addNotification("Erro ao salvar na planilha. E-mail não enviado.", "error");
     }
     
     setReturnTarget(null);
@@ -310,7 +334,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50 relative">
       <header className="bg-red-700 text-white shadow-lg p-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex flex-col">
@@ -355,10 +379,20 @@ const App: React.FC = () => {
             </button>
           </div>
         </div>
-        <div className="md:hidden mt-2 text-center border-t border-white/10 pt-2">
-           <span className="text-[9px] font-bold uppercase tracking-widest text-red-100">Olá {authState.user.rank} {authState.user.warName}</span>
-        </div>
       </header>
+
+      {/* Container de Notificações Toasts */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[300] flex flex-col gap-2 w-full max-w-sm px-4">
+        {notifications.map(n => (
+          <div key={n.id} className={`p-4 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider animate-in slide-in-from-bottom-2 duration-300 border backdrop-blur-md ${n.type === 'success' ? 'bg-green-500/90 text-white border-green-400' : 'bg-red-600/90 text-white border-red-500'}`}>
+            {n.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+            <span className="flex-1">{n.message}</span>
+            <button onClick={() => setNotifications(prev => prev.filter(notif => notif.id !== n.id))}>
+              <X className="w-3 h-3 opacity-60" />
+            </button>
+          </div>
+        ))}
+      </div>
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-8 space-y-6">
         <div className="flex bg-white rounded-2xl shadow-sm border p-1 sticky top-20 z-40 backdrop-blur-md bg-white/90">
@@ -414,9 +448,9 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <button type="submit" disabled={!hasInitialLoad} className="w-full bg-red-700 hover:bg-red-800 disabled:bg-slate-300 text-white font-bold py-5 rounded-2xl shadow-xl uppercase flex items-center justify-center gap-3 border-b-4 border-red-900 transition-all active:scale-95">
-                  {!hasInitialLoad ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
-                  {!hasInitialLoad ? "Carregando Banco..." : "Registrar Acautelamento"}
+                <button type="submit" disabled={!hasInitialLoad || isSaving} className="w-full bg-red-700 hover:bg-red-800 disabled:bg-slate-300 text-white font-bold py-5 rounded-2xl shadow-xl uppercase flex items-center justify-center gap-3 border-b-4 border-red-900 transition-all active:scale-95">
+                  {isSaving || !hasInitialLoad ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
+                  {!hasInitialLoad ? "Carregando Banco..." : isSaving ? "Salvando..." : "Registrar Acautelamento"}
                 </button>
               </form>
             </div>
@@ -519,6 +553,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* Modais com Trava de Salvamento e E-mail */}
       {showReturnConfirm && returnTarget && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
