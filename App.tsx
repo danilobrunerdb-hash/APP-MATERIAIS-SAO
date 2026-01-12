@@ -123,6 +123,10 @@ const App: React.FC = () => {
     return d.toISOString().split('T')[0];
   });
   
+  // Plantonista states
+  const [dutyOfficerBm, setDutyOfficerBm] = useState('');
+  const [dutyOfficerName, setDutyOfficerName] = useState('');
+  
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
   const [pendingObservations, setPendingObservations] = useState<Record<string, string>>({});
   const [returnTarget, setReturnTarget] = useState<Movement | null>(null);
@@ -220,7 +224,9 @@ const App: React.FC = () => {
       material: checkoutMaterial,
       reason: checkoutReason || 'Não informado', 
       type: checkoutType, 
-      status: MovementStatus.PENDENTE
+      status: MovementStatus.PENDENTE,
+      dutyOfficerBm: dutyOfficerBm,
+      dutyOfficerName: dutyOfficerName
     };
     
     const updated = [newMovement, ...movements];
@@ -232,8 +238,13 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msg = `Olá ${authState.user.rank} ${authState.user.warName}, confirmamos a retirada de material na SAO do 6º BBM (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Caso não reconheça este registro, procure a SAO imediatamente.`;
+      const msg = `Olá ${authState.user.rank} ${authState.user.warName}, confirmamos a retirada de material na SAO do 6º BBM (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Plantonista SAO: ${dutyOfficerName}. Caso não reconheça este registro, procure a SAO imediatamente.`;
       await sendMovementEmail(authState.user.bm, msg, "Retirada de Material - SAO 6º BBM");
+
+      // Novo e-mail para o plantonista da SAO conforme solicitação
+      const msgDutyOfficer = `Olá ${dutyOfficerName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${authState.user.rank} ${authState.user.warName} (militar responsável).`;
+      await sendMovementEmail(dutyOfficerBm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
+      
     } else {
       setSyncError(true);
       addNotification("Aviso: Dados salvos localmente, sync pendente.", "error");
@@ -241,6 +252,8 @@ const App: React.FC = () => {
     
     setCheckoutMaterial(''); 
     setCheckoutReason(''); 
+    setDutyOfficerBm('');
+    setDutyOfficerName('');
     setShowCheckoutConfirm(false);
     setIsSaving(false);
     setActiveTab('history');
@@ -431,6 +444,18 @@ const App: React.FC = () => {
               <form onSubmit={(e) => { e.preventDefault(); setShowCheckoutConfirm(true); }} className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-5">
+                    {/* Plantonista Info Fields Added Above Detailed Description */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plantonista SAO (nº BM)</label>
+                        <input type="text" placeholder="111.111-7" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={dutyOfficerBm} onChange={(e) => setDutyOfficerBm(formatBM(e.target.value))} required />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plantonista SAO (P/G e Nome)</label>
+                        <input type="text" placeholder="Ex: Cb Augusto" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={dutyOfficerName} onChange={(e) => setDutyOfficerName(e.target.value)} required />
+                      </div>
+                    </div>
+
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição Detalhada</label>
                       <textarea placeholder="Ex: 03 Mosquetões, 02 polias, 01 Bolsa APH" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[160px] font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all" value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} required />

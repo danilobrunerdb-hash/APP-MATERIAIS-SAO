@@ -40,6 +40,8 @@ export interface Movement {
   receiverName?: string;
   receiverWarName?: string;
   receiverRank?: string;
+  dutyOfficerBm?: string;
+  dutyOfficerName?: string;
 }
 
 export interface AuthState {

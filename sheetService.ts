@@ -2,10 +2,10 @@
 import { Movement } from './types';
 
 /**
- * INSTRUÇÕES PARA O GOOGLE APPS SCRIPT (GAS) - VERSÃO DE ALTA FIDELIDADE:
+ * INSTRUÇÕES PARA O GOOGLE APPS SCRIPT (GAS):
  * 
  * 1. No Google Sheets, vá em Extensões > Apps Script.
- * 2. Substitua TODO o código lá por este abaixo para garantir a persistência:
+ * 2. Substitua o código existente por este para incluir a nova coluna de Plantonista:
  * 
  * function doPost(e) {
  *   try {
@@ -19,17 +19,19 @@ import { Movement } from './types';
  *         "ID", "BM", "Nome", "Nome Guerra", "Posto", 
  *         "Material", "Categoria", "Data Saída", "Previsão", "Motivo", 
  *         "Status", "Data Retorno", "Obs", "Recebedor BM", "Recebedor Nome", 
- *         "Recebedor Guerra", "Recebedor Posto"
+ *         "Recebedor Guerra", "Recebedor Posto", "Plantonista BM", "Plantonista Nome", "Plantonista do Dia"
  *       ];
  *       sheet.appendRow(headers);
  *       
  *       if (data.movements.length > 0) {
  *         var rows = data.movements.map(function(m) {
+ *           var plantonistaResumo = m.dutyOfficerName ? m.dutyOfficerName + " (" + m.dutyOfficerBm + ")" : "";
  *           return [
  *             m.id, m.bm, m.name, m.warName, m.rank,
  *             m.material, m.type, m.dateCheckout, m.estimatedReturnDate || '', m.reason || '',
  *             m.status, m.dateReturn || '', m.observations || '', m.receiverBm || '', m.receiverName || '',
- *             m.receiverWarName || '', m.receiverRank || ''
+ *             m.receiverWarName || '', m.receiverRank || '', m.dutyOfficerBm || '', m.dutyOfficerName || '',
+ *             plantonistaResumo
  *           ];
  *         });
  *         sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
@@ -70,7 +72,9 @@ import { Movement } from './types';
  *           receiverBm: String(row[13]),
  *           receiverName: String(row[14]),
  *           receiverWarName: String(row[15]),
- *           receiverRank: String(row[16])
+ *           receiverRank: String(row[16]),
+ *           dutyOfficerBm: String(row[17] || ''),
+ *           dutyOfficerName: String(row[18] || '')
  *         });
  *       }
  *       return ContentService.createTextOutput(JSON.stringify(results)).setMimeType(ContentService.MimeType.JSON);
