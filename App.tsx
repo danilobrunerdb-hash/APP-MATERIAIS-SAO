@@ -110,10 +110,15 @@ const App: React.FC = () => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
-  // Form states
+  // Login Form states (Plantonista)
   const [formRank, setFormRank] = useState('');
   const [formName, setFormName] = useState('');
   const [formBm, setFormBm] = useState('');
+
+  // Checkout Form states (Militar que retira)
+  const [borrowerRank, setBorrowerRank] = useState('');
+  const [borrowerName, setBorrowerName] = useState('');
+  const [borrowerBm, setBorrowerBm] = useState('');
   const [checkoutMaterial, setCheckoutMaterial] = useState('');
   const [checkoutReason, setCheckoutReason] = useState('');
   const [checkoutType, setCheckoutType] = useState<MaterialType>(MaterialType.TERRESTRE);
@@ -122,10 +127,6 @@ const App: React.FC = () => {
     d.setDate(d.getDate() + 7);
     return d.toISOString().split('T')[0];
   });
-  
-  // Plantonista states
-  const [dutyOfficerBm, setDutyOfficerBm] = useState('');
-  const [dutyOfficerName, setDutyOfficerName] = useState('');
   
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
   const [pendingObservations, setPendingObservations] = useState<Record<string, string>>({});
@@ -213,20 +214,25 @@ const App: React.FC = () => {
     if (!authState.user || !hasInitialLoad) return;
     setIsSaving(true);
 
+    // Lógica para obter nome de guerra do retirante
+    const names = borrowerName.trim().split(/\s+/);
+    const uppercaseWords = names.filter(n => n === n.toUpperCase() && n.length >= 2);
+    const borrowerWarName = uppercaseWords.length > 0 ? uppercaseWords.join(' ') : names[names.length - 1];
+
     const newMovement: Movement = {
       id: Math.random().toString(36).substr(2, 9),
-      bm: authState.user.bm, 
-      name: authState.user.name, 
-      warName: authState.user.warName,
-      rank: authState.user.rank, 
+      bm: borrowerBm, 
+      name: borrowerName, 
+      warName: borrowerWarName,
+      rank: borrowerRank, 
       dateCheckout: new Date().toISOString(),
       estimatedReturnDate: checkoutEstimatedReturn, 
       material: checkoutMaterial,
       reason: checkoutReason || 'Não informado', 
       type: checkoutType, 
       status: MovementStatus.PENDENTE,
-      dutyOfficerBm: dutyOfficerBm,
-      dutyOfficerName: dutyOfficerName
+      dutyOfficerBm: authState.user.bm,
+      dutyOfficerName: `${authState.user.rank} ${authState.user.warName}`
     };
     
     const updated = [newMovement, ...movements];
@@ -238,12 +244,13 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msg = `Olá ${authState.user.rank} ${authState.user.warName}, confirmamos a retirada de material na SAO do 6º BBM (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Plantonista SAO: ${dutyOfficerName}. Caso não reconheça este registro, procure a SAO imediatamente.`;
-      await sendMovementEmail(authState.user.bm, msg, "Retirada de Material - SAO 6º BBM");
+      // E-mail para o militar que está retirando
+      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou na SAO do 6º BBM o material: (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Plantonista responsável pela entrega: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça este registro, procure a SAO imediatamente.`;
+      await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM");
 
-      // Novo e-mail para o plantonista da SAO conforme solicitação
-      const msgDutyOfficer = `Olá ${dutyOfficerName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${authState.user.rank} ${authState.user.warName} (militar responsável). Caso verifique qualquer inconsistência entre em contato com o CBU do dia.`;
-      await sendMovementEmail(dutyOfficerBm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
+      // E-mail para o plantonista logado
+      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${borrowerRank} ${borrowerWarName} (militar responsável). Caso verifique qualquer inconsistência entre em contato com o CBU do dia.`;
+      await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
       
     } else {
       setSyncError(true);
@@ -252,8 +259,9 @@ const App: React.FC = () => {
     
     setCheckoutMaterial(''); 
     setCheckoutReason(''); 
-    setDutyOfficerBm('');
-    setDutyOfficerName('');
+    setBorrowerBm('');
+    setBorrowerName('');
+    setBorrowerRank('');
     setShowCheckoutConfirm(false);
     setIsSaving(false);
     setActiveTab('history');
@@ -288,11 +296,9 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // E-mail para o militar que retirou os materiais
       const msgBorrower = `Olá ${returnTarget.rank} ${returnTarget.warName}, confirmamos a devolução do material (${returnTarget.material}) na SAO do 6º BBM. Recebido por: ${authState.user.rank} ${authState.user.warName}.`;
       await sendMovementEmail(returnTarget.bm, msgBorrower, "Devolução Confirmada - SAO 6º BBM");
 
-      // E-mail para o militar que está recebendo o material
       const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu o material (${returnTarget.material}) do militar (${returnTarget.rank} ${returnTarget.warName}) caso verifique inconsistências entre em contato com o SAO ou CBU de serviço hoje`;
       await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM");
 
@@ -316,7 +322,8 @@ const App: React.FC = () => {
         m.bm || '', 
         m.reason || '',
         m.warName || '',
-        m.receiverWarName || ''
+        m.receiverWarName || '',
+        m.dutyOfficerName || ''
       ].some(f => f.toLowerCase().includes(term));
       return matchesStatus && matchesSearch;
     });
@@ -328,7 +335,7 @@ const App: React.FC = () => {
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
           <div className="bg-red-700 p-10 text-center text-white">
             <h1 className="text-4xl font-black uppercase tracking-tighter">SAO - 6º BBM</h1>
-            <p className="text-[10px] font-bold mt-2 opacity-90 tracking-widest uppercase">Controle de Material CBMMG</p>
+            <p className="text-[10px] font-bold mt-2 opacity-90 tracking-widest uppercase">Acesso do Plantonista</p>
           </div>
           <div className="p-8">
             <form onSubmit={async (e) => {
@@ -339,11 +346,10 @@ const App: React.FC = () => {
               const user = { rank: formRank, name: formName, warName: warNameFound, bm: formBm, cpf: '' };
               setAuthState({ user, isVisitor: false });
               localStorage.setItem('sao_current_user', JSON.stringify(user));
-              // Sincroniza dados imediatamente após o login para todos os usuários
               await syncData(true);
             }} className="space-y-5">
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posto/Graduação</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posto/Graduação (Plantonista)</label>
                 <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={formRank} onChange={(e) => setFormRank(e.target.value)} required>
                   <option value="">Selecione...</option>
                   {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
@@ -351,13 +357,13 @@ const App: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo (GUERRA em CAIXA ALTA)</label>
-                <input type="text" placeholder="Ex: João SILVA Santos" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={formName} onChange={(e) => setFormName(e.target.value)} required />
+                <input type="text" placeholder="Ex: JOÃO Augusto Silva" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={formName} onChange={(e) => setFormName(e.target.value)} required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº BM</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº BM (Plantonista)</label>
                 <input type="text" placeholder="Ex: 123.456-7" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={formBm} onChange={(e) => setFormBm(formatBM(e.target.value))} required />
               </div>
-              <button type="submit" className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-4 rounded-xl shadow-lg uppercase tracking-widest border-b-4 border-red-900 transition-all active:scale-95 mt-2">Acessar Sistema</button>
+              <button type="submit" className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-4 rounded-xl shadow-lg uppercase tracking-widest border-b-4 border-red-900 transition-all active:scale-95 mt-2">Registrar Movimentação</button>
             </form>
           </div>
         </div>
@@ -382,7 +388,7 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-green-300 bg-green-950/30 px-2 py-0.5 rounded-full border border-green-500/20">
-                  <Wifi className="w-3 h-3" /> Online {lastSync && `(${lastSync})`}
+                  <Wifi className="w-3 h-3" /> Plantonista Online {lastSync && `(${lastSync})`}
                 </div>
               )}
             </div>
@@ -439,26 +445,35 @@ const App: React.FC = () => {
           {activeTab === 'checkout' && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
               <h2 className="text-xl font-bold text-slate-800 uppercase mb-8 flex items-center gap-2">
-                <ClipboardList className="w-6 h-6 text-red-600" /> Registro de Saída de Material
+                <ClipboardList className="w-6 h-6 text-red-600" /> Registro de Entrega de Material
               </h2>
               <form onSubmit={(e) => { e.preventDefault(); setShowCheckoutConfirm(true); }} className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-5">
-                    {/* Plantonista Info Fields Added Above Detailed Description */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plantonista SAO (nº BM)</label>
-                        <input type="text" placeholder="111.111-7" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={dutyOfficerBm} onChange={(e) => setDutyOfficerBm(formatBM(e.target.value))} required />
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-4">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Dados do Militar Retirante</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posto/Graduação</label>
+                          <select className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={borrowerRank} onChange={(e) => setBorrowerRank(e.target.value)} required>
+                            <option value="">Selecione...</option>
+                            {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº BM</label>
+                          <input type="text" placeholder="Ex: 123.456-7" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={borrowerBm} onChange={(e) => setBorrowerBm(formatBM(e.target.value))} required />
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Plantonista SAO (P/G e Nome)</label>
-                        <input type="text" placeholder="Ex: Cb Augusto" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={dutyOfficerName} onChange={(e) => setDutyOfficerName(e.target.value)} required />
+                      <div className="mt-4 space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo (GUERRA em CAIXA ALTA)</label>
+                        <input type="text" placeholder="Ex: PAULO Santos da Silva" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={borrowerName} onChange={(e) => setBorrowerName(e.target.value)} required />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição Detalhada</label>
-                      <textarea placeholder="Ex: 03 Mosquetões, 02 polias, 01 Bolsa APH" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[160px] font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all" value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} required />
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição Detalhada do Material</label>
+                      <textarea placeholder="Ex: 03 Mosquetões, 02 polias, 01 Bolsa APH" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[120px] font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all" value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} required />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Motivo do Acautelamento</label>
@@ -483,7 +498,7 @@ const App: React.FC = () => {
                 </div>
                 <button type="submit" disabled={!hasInitialLoad || isSaving} className="w-full bg-red-700 hover:bg-red-800 disabled:bg-slate-300 text-white font-bold py-5 rounded-2xl shadow-xl uppercase flex items-center justify-center gap-3 border-b-4 border-red-900 transition-all active:scale-95">
                   {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
-                  {isSaving ? "Salvando Registro..." : "Confirmar Acautelamento"}
+                  {isSaving ? "Gravando Registro..." : "Confirmar Entrega"}
                 </button>
               </form>
             </div>
@@ -493,7 +508,7 @@ const App: React.FC = () => {
             <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 min-h-[500px]">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-4 border-b gap-4">
                 <h2 className="text-xl font-bold text-slate-800 uppercase flex items-center gap-2">
-                  <ArrowRightLeft className="w-6 h-6 text-red-600" /> Pendências na SAO
+                  <ArrowRightLeft className="w-6 h-6 text-red-600" /> Materiais com a Tropa
                 </h2>
                 <div className="w-full md:w-96 relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -520,6 +535,7 @@ const App: React.FC = () => {
                         <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-sm text-slate-700 font-medium italic">
                           "{m.material}"
                         </div>
+                        <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase">Plantonista que entregou: {m.dutyOfficerName}</div>
                       </div>
                       <button onClick={() => { setReturnTarget(m); setShowReturnConfirm(true); }} className="bg-green-600 hover:bg-green-700 text-white font-black px-8 py-4 rounded-xl uppercase text-[10px] self-center shadow-lg border-b-4 border-green-800 transition-all active:scale-95 flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4" /> Receber Material
@@ -537,7 +553,7 @@ const App: React.FC = () => {
                    <div className="flex flex-col xl:flex-row gap-6 mb-8 items-start xl:items-center">
                       <div className="flex-1 w-full relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="text" placeholder="Filtrar por qualquer campo..." className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 focus:ring-red-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input type="text" placeholder="Filtrar histórico..." className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 focus:ring-red-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                       </div>
                       <div className="flex flex-wrap items-center gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200">
                         <button onClick={() => setStatusFilter('all')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-white/50'}`}>Todos</button>
@@ -547,14 +563,14 @@ const App: React.FC = () => {
                    </div>
 
                    <div className="overflow-x-auto -mx-6 sm:mx-0">
-                      <table className="w-full text-left border-separate border-spacing-y-3 min-w-[1000px] px-6 sm:px-0">
+                      <table className="w-full text-left border-separate border-spacing-y-3 min-w-[1200px] px-6 sm:px-0">
                         <thead>
                           <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                            <th className="px-5 py-3">Acautelado por</th>
+                            <th className="px-5 py-3">Militar Responsável</th>
                             <th className="px-5 py-3">Descrição Material</th>
                             <th className="px-5 py-3">Datas (Saída/Prev)</th>
-                            <th className="px-5 py-3">Recebido Por</th>
-                            <th className="px-5 py-3">Data Devolução</th>
+                            <th className="px-5 py-3">Entregue por</th>
+                            <th className="px-5 py-3">Recebido por</th>
                             <th className="px-5 py-3 text-center">Status</th>
                           </tr>
                         </thead>
@@ -586,20 +602,16 @@ const App: React.FC = () => {
                                   </div>
                                 </td>
                                 <td className="py-5 px-5 border-y border-slate-100">
+                                  <div className="text-[10px] font-bold text-slate-600 uppercase">{m.dutyOfficerName}</div>
+                                  <div className="text-[8px] text-slate-400">BM {m.dutyOfficerBm}</div>
+                                </td>
+                                <td className="py-5 px-5 border-y border-slate-100">
                                   {m.status === MovementStatus.DEVOLVIDO ? (
                                     <div>
                                       <div className="font-black uppercase text-slate-800 leading-tight mb-1 text-xs">{m.receiverRank} {m.receiverWarName}</div>
                                       <div className="text-[9px] text-slate-400 font-bold">BM {m.receiverBm}</div>
                                     </div>
-                                  ) : <span className="text-slate-300 italic text-[10px]">Aguardando...</span>}
-                                </td>
-                                <td className="py-5 px-5 border-y border-slate-100 whitespace-nowrap">
-                                  {m.dateReturn ? (
-                                    <div className="flex items-center gap-2 text-green-600 font-bold">
-                                      <Check className="w-3.5 h-3.5" />
-                                      <span className="text-[10px]">{formatDateTime(m.dateReturn)}</span>
-                                    </div>
-                                  ) : <span className="text-slate-300">-</span>}
+                                  ) : <span className="text-slate-300 italic text-[10px]">Em posse da tropa</span>}
                                 </td>
                                 <td className="py-5 px-5 rounded-r-2xl border-r border-y border-slate-100 text-center">
                                   <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${m.status === MovementStatus.PENDENTE ? (overdue ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200') : 'bg-green-100 text-green-700 border border-green-200'}`}>
@@ -653,7 +665,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
             <h3 className="text-2xl font-black uppercase tracking-tight text-green-600 mb-6 flex items-center gap-2">
-               <CheckCircle2 className="w-6 h-6" /> Devolução de Material
+               <CheckCircle2 className="w-6 h-6" /> Confirmar Devolução
             </h3>
             <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100 italic text-slate-600 text-sm">
               "{returnTarget.material}"
@@ -678,11 +690,17 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
             <h3 className="text-2xl font-black uppercase tracking-tight text-amber-600 mb-6 flex items-center gap-2">
-              <AlertTriangle className="w-6 h-6" /> Confirmar Carga Militar
+              <AlertTriangle className="w-6 h-6" /> Confirmar Registro de Saída
             </h3>
             <div className="bg-slate-50 p-6 rounded-2xl border text-sm space-y-4 mb-6">
-               <p className="font-black text-slate-400 uppercase text-[10px]">Material em Retirada:</p>
-               <p className="font-bold text-slate-800">{checkoutMaterial}</p>
+               <div className="flex justify-between border-b pb-2">
+                 <p className="font-black text-slate-400 uppercase text-[10px]">Militar Retirante:</p>
+                 <p className="font-bold text-slate-800">{borrowerRank} {borrowerName}</p>
+               </div>
+               <div className="pt-2">
+                 <p className="font-black text-slate-400 uppercase text-[10px]">Material:</p>
+                 <p className="font-bold text-slate-800">{checkoutMaterial}</p>
+               </div>
                <div className="pt-2 border-t">
                  <p className="text-[10px] text-slate-400 uppercase font-black">Previsão para Devolução:</p>
                  <p className="font-black text-red-600">{formatDateOnly(checkoutEstimatedReturn)}</p>
@@ -691,7 +709,7 @@ const App: React.FC = () => {
             <div className="flex gap-3">
               <button disabled={isSaving} onClick={() => setShowCheckoutConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase hover:bg-slate-200">Revisar</button>
               <button disabled={isSaving || !hasInitialLoad} onClick={handleCheckoutFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Confirmar Saída
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Confirmar Entrega
               </button>
             </div>
           </div>
