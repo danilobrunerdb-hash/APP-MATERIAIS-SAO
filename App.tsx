@@ -5,6 +5,7 @@ import { MATERIAL_TYPES, RANKS } from './constants';
 import { getSmartSummary } from './geminiService';
 import { saveToSheets, fetchFromSheets } from './sheetService';
 import emailjs from '@emailjs/browser';
+
 import { 
   ClipboardList, 
   LogOut, 
@@ -214,7 +215,6 @@ const App: React.FC = () => {
     if (!authState.user || !hasInitialLoad) return;
     setIsSaving(true);
 
-    // Lógica para obter nome de guerra do retirante
     const names = borrowerName.trim().split(/\s+/);
     const uppercaseWords = names.filter(n => n === n.toUpperCase() && n.length >= 2);
     const borrowerWarName = uppercaseWords.length > 0 ? uppercaseWords.join(' ') : names[names.length - 1];
@@ -244,11 +244,9 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // E-mail para o militar que está retirando
       const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou na SAO do 6º BBM o material: (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Plantonista responsável pela entrega: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça este registro, procure a SAO imediatamente.`;
       await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM");
 
-      // E-mail para o plantonista logado
       const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${borrowerRank} ${borrowerWarName} (militar responsável). Caso verifique qualquer inconsistência entre em contato com o CBU do dia.`;
       await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
       
@@ -335,7 +333,7 @@ const App: React.FC = () => {
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
           <div className="bg-red-700 p-10 text-center text-white">
             <img 
-              src="https://www.bombeiros.mg.gov.br/images/logo_cbmmg.png" 
+              src="https://www.bombeiros.mg.gov.br/images/logo.png" 
               alt="Logo CBMMG" 
               className="w-24 mx-auto mb-6 drop-shadow-xl" 
             />
