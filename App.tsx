@@ -242,7 +242,7 @@ const App: React.FC = () => {
       await sendMovementEmail(authState.user.bm, msg, "Retirada de Material - SAO 6º BBM");
 
       // Novo e-mail para o plantonista da SAO conforme solicitação
-      const msgDutyOfficer = `Olá ${dutyOfficerName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${authState.user.rank} ${authState.user.warName} (militar responsável).`;
+      const msgDutyOfficer = `Olá ${dutyOfficerName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${authState.user.rank} ${authState.user.warName} (militar responsável). Caso verifique qualquer inconsistência entre em contato com o CBU do dia.`;
       await sendMovementEmail(dutyOfficerBm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
       
     } else {
@@ -470,7 +470,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Categoria Responsável</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Tipo de Material </label>
                     <div className="grid grid-cols-1 gap-2">
                       {MATERIAL_TYPES.map(t => (
                         <button key={t} type="button" onClick={() => setCheckoutType(t)} className={`flex justify-between items-center p-4 rounded-xl border transition-all ${checkoutType === t ? 'border-red-600 bg-red-50 text-red-700 font-bold shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
