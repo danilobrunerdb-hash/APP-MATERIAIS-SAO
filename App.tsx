@@ -334,6 +334,11 @@ const App: React.FC = () => {
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950">
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
           <div className="bg-red-700 p-10 text-center text-white">
+            <img 
+              src="https://www.bombeiros.mg.gov.br/images/logo_cbmmg.png" 
+              alt="Logo CBMMG" 
+              className="w-24 mx-auto mb-6 drop-shadow-xl" 
+            />
             <h1 className="text-4xl font-black uppercase tracking-tighter">SAO - 6º BBM</h1>
             <p className="text-[10px] font-bold mt-2 opacity-90 tracking-widest uppercase">Acesso do Plantonista</p>
           </div>
