@@ -37,7 +37,7 @@ import {
   AlertOctagon
 } from 'lucide-react';
 
-const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxYLn5e62ejJO784KmCoTSQ5cRe7Q7jLoqdO5QlzZljnC392ppHeUKlqbRjUEYaqzVD/exec";
+const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxcnYdNcVBBgMhy1BM0OnZRNX-ohhQlsy44ADh8uVTZF2baINYTLT3qgDfTXG5FM-ie/exec";
 
 const EMAILJS_CONFIG = {
   SERVICE_ID: "TESTE SAO", 
@@ -550,7 +550,7 @@ const App: React.FC = () => {
                       <table className="w-full text-left border-separate border-spacing-y-3 min-w-[1000px] px-6 sm:px-0">
                         <thead>
                           <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                            <th className="px-5 py-3">Responsável</th>
+                            <th className="px-5 py-3">Acautelado por</th>
                             <th className="px-5 py-3">Descrição Material</th>
                             <th className="px-5 py-3">Datas (Saída/Prev)</th>
                             <th className="px-5 py-3">Recebido Por</th>
