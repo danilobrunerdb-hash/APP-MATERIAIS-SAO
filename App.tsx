@@ -700,6 +700,10 @@ const App: React.FC = () => {
                  <p className="font-black text-slate-400 uppercase text-[10px]">Militar Retirante:</p>
                  <p className="font-bold text-slate-800">{borrowerRank} {borrowerName}</p>
                </div>
+               <div className="flex justify-between border-b pb-2">
+                 <p className="font-black text-slate-400 uppercase text-[10px]">Plantonista Responsável:</p>
+                 <p className="font-bold text-slate-800">{authState.user?.rank} {authState.user?.warName}</p>
+               </div>
                <div className="pt-2">
                  <p className="font-black text-slate-400 uppercase text-[10px]">Material:</p>
                  <p className="font-bold text-slate-800">{checkoutMaterial}</p>
