@@ -378,22 +378,29 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-slate-50 relative">
       <header className="bg-red-700 text-white shadow-lg p-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex flex-col">
-            <h1 className="font-black text-xl leading-none uppercase tracking-tighter">SAO - 6º BBM</h1>
-            <div className="flex items-center gap-2 mt-1">
-              {!isOnline ? (
-                <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-red-100 bg-red-900/60 px-2 py-0.5 rounded-full border border-red-400/30 animate-pulse">
-                  <WifiOff className="w-3 h-3" /> Modo Offline
-                </div>
-              ) : syncError ? (
-                <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-amber-200 bg-amber-900/40 px-2 py-0.5 rounded-full border border-amber-400/30">
-                  <CloudOff className="w-3 h-3" /> Sync Falhou
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-green-300 bg-green-950/30 px-2 py-0.5 rounded-full border border-green-500/20">
-                  <Wifi className="w-3 h-3" /> Plantonista Online {lastSync && `(${lastSync})`}
-                </div>
-              )}
+          <div className="flex items-center gap-3">
+            <img 
+              src="https://www.bombeiros.mg.gov.br/images/logo.png" 
+              alt="Logo CBMMG" 
+              className="w-8 h-8 drop-shadow-md" 
+            />
+            <div className="flex flex-col">
+              <h1 className="font-black text-xl leading-none uppercase tracking-tighter">SAO - 6º BBM</h1>
+              <div className="flex items-center gap-2 mt-1">
+                {!isOnline ? (
+                  <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-red-100 bg-red-900/60 px-2 py-0.5 rounded-full border border-red-400/30 animate-pulse">
+                    <WifiOff className="w-3 h-3" /> Modo Offline
+                  </div>
+                ) : syncError ? (
+                  <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-amber-200 bg-amber-900/40 px-2 py-0.5 rounded-full border border-amber-400/30">
+                    <CloudOff className="w-3 h-3" /> Sync Falhou
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-green-300 bg-green-950/30 px-2 py-0.5 rounded-full border border-green-500/20">
+                    <Wifi className="w-3 h-3" /> Plantonista Online {lastSync && `(${lastSync})`}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           
@@ -620,6 +627,11 @@ const App: React.FC = () => {
                                   <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${m.status === MovementStatus.PENDENTE ? (overdue ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200') : 'bg-green-100 text-green-700 border border-green-200'}`}>
                                     {m.status === MovementStatus.PENDENTE && overdue ? "EM ATRASO" : m.status}
                                   </span>
+                                  {m.status === MovementStatus.DEVOLVIDO && (
+                                    <div className="text-[9px] text-slate-400 font-bold mt-1">
+                                      {formatDateOnly(m.dateReturn)}
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             );
