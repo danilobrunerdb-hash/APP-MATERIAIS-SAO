@@ -573,9 +573,9 @@ const App: React.FC = () => {
                    </div>
 
                    <div className="overflow-x-auto -mx-6 sm:mx-0">
-                      <table className="w-full text-left border-separate border-spacing-y-3 min-w-[1200px] px-6 sm:px-0">
+                      <table className="w-full text-left border-separate border-spacing-y-3 min-w-[1200px] px-6 sm:px-0 lg:min-w-0">
                         <thead>
-                          <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          <tr className="text-[9px] lg:text-[8px] font-black text-slate-400 uppercase tracking-widest">
                             <th className="px-5 py-3">Militar Responsável</th>
                             <th className="px-5 py-3">Descrição Material</th>
                             <th className="px-5 py-3">Datas (Saída/Prev)</th>
@@ -588,10 +588,10 @@ const App: React.FC = () => {
                           {filteredMovements.length > 0 ? filteredMovements.map(m => {
                             const overdue = isOverdue(m.estimatedReturnDate, m.status);
                             return (
-                              <tr key={m.id} className={`transition-all text-sm group shadow-sm hover:shadow-md border border-slate-100 ${overdue ? 'bg-red-50/50 hover:bg-red-50' : 'bg-slate-50/50 hover:bg-white'}`}>
+                              <tr key={m.id} className={`transition-all text-sm lg:text-[11px] group shadow-sm hover:shadow-md border border-slate-100 ${overdue ? 'bg-red-50/50 hover:bg-red-50' : 'bg-slate-50/50 hover:bg-white'}`}>
                                 <td className="py-5 px-5 rounded-l-2xl border-l border-y border-slate-100">
-                                  <div className="font-black uppercase text-slate-800 leading-tight mb-1">{m.rank} {m.warName}</div>
-                                  <div className="text-[9px] text-slate-400 font-bold">BM {m.bm}</div>
+                                  <div className="font-black uppercase text-slate-800 leading-tight mb-1 text-xs lg:text-[10px]">{m.rank} {m.warName}</div>
+                                  <div className="text-[9px] lg:text-[8px] text-slate-400 font-bold">BM {m.bm}</div>
                                 </td>
                                 <td className="py-5 px-5 border-y border-slate-100">
                                   <div className="font-bold text-slate-700 max-w-xs leading-relaxed">{m.material}</div>
@@ -601,34 +601,34 @@ const App: React.FC = () => {
                                   <div className="flex flex-col gap-1">
                                     <div className="flex items-center gap-2 text-slate-500">
                                       <ArrowRight className="w-3 h-3 text-red-400" />
-                                      <span className="text-[10px] font-bold">{formatDateTime(m.dateCheckout)}</span>
+                                      <span className="text-[10px] lg:text-[9px] font-bold">{formatDateTime(m.dateCheckout)}</span>
                                     </div>
                                     {m.estimatedReturnDate && (
                                       <div className={`flex items-center gap-2 ${overdue ? 'text-red-600 font-black' : 'text-slate-400'}`}>
                                         <Calendar className="w-3 h-3" />
-                                        <span className="text-[10px]">Prev: {formatDateOnly(m.estimatedReturnDate)}</span>
+                                        <span className="text-[10px] lg:text-[9px]">Prev: {formatDateOnly(m.estimatedReturnDate)}</span>
                                       </div>
                                     )}
                                   </div>
                                 </td>
                                 <td className="py-5 px-5 border-y border-slate-100">
-                                  <div className="text-[10px] font-bold text-slate-600 uppercase">{m.dutyOfficerName}</div>
+                                  <div className="text-[10px] lg:text-[9px] font-bold text-slate-600 uppercase">{m.dutyOfficerName}</div>
                                   <div className="text-[8px] text-slate-400">BM {m.dutyOfficerBm}</div>
                                 </td>
                                 <td className="py-5 px-5 border-y border-slate-100">
                                   {m.status === MovementStatus.DEVOLVIDO ? (
                                     <div>
-                                      <div className="font-black uppercase text-slate-800 leading-tight mb-1 text-xs">{m.receiverRank} {m.receiverWarName}</div>
-                                      <div className="text-[9px] text-slate-400 font-bold">BM {m.receiverBm}</div>
+                                      <div className="font-black uppercase text-slate-800 leading-tight mb-1 text-xs lg:text-[10px]">{m.receiverRank} {m.receiverWarName}</div>
+                                      <div className="text-[9px] lg:text-[8px] text-slate-400 font-bold">BM {m.receiverBm}</div>
                                     </div>
-                                  ) : <span className="text-slate-300 italic text-[10px]">Em posse da tropa</span>}
+                                  ) : <span className="text-slate-300 italic text-[10px] lg:text-[9px]">Em posse da tropa</span>}
                                 </td>
                                 <td className="py-5 px-5 rounded-r-2xl border-r border-y border-slate-100 text-center">
-                                  <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${m.status === MovementStatus.PENDENTE ? (overdue ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200') : 'bg-green-100 text-green-700 border border-green-200'}`}>
+                                  <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] lg:text-[8px] font-black uppercase tracking-widest shadow-sm ${m.status === MovementStatus.PENDENTE ? (overdue ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-700 border border-amber-200') : 'bg-green-100 text-green-700 border border-green-200'}`}>
                                     {m.status === MovementStatus.PENDENTE && overdue ? "EM ATRASO" : m.status}
                                   </span>
                                   {m.status === MovementStatus.DEVOLVIDO && (
-                                    <div className="text-[9px] text-slate-400 font-bold mt-1">
+                                    <div className="text-[9px] lg:text-[8px] text-slate-400 font-bold mt-1">
                                       {formatDateOnly(m.dateReturn)}
                                     </div>
                                   )}
@@ -687,7 +687,7 @@ const App: React.FC = () => {
             </div>
             <textarea 
               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-green-500" 
-              placeholder="Descreva o estado do material ou observações pertinentes..."
+              placeholder="Descreva o estado do material or observações pertinentes..."
               value={pendingObservations[returnTarget.id] || ''}
               onChange={(e) => setPendingObservations(prev => ({ ...prev, [returnTarget.id]: e.target.value }))}
             />
