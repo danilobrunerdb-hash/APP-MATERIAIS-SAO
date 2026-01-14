@@ -41,6 +41,7 @@ import {
 const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxcnYdNcVBBgMhy1BM0OnZRNX-ohhQlsy44ADh8uVTZF2baINYTLT3qgDfTXG5FM-ie/exec";
 
 const EMAILJS_CONFIG = {
+  // ATENÇÃO: O SERVICE_ID não pode ter espaços. Pegue o ID correto no painel do EmailJS (ex: service_xxxx).
   SERVICE_ID: "TESTE SAO", 
   TEMPLATE_ID: "template_1u4h5ia", 
   PUBLIC_KEY: "F0L0nHY7l2OI-DgpO"
@@ -157,9 +158,11 @@ const App: React.FC = () => {
         EMAILJS_CONFIG.PUBLIC_KEY
       );
       addNotification(`E-mail enviado para ${email}`, 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro EmailJS:", error);
-      addNotification(`Falha no e-mail militar (${email}).`, 'error');
+      // Extrai a mensagem de erro específica do EmailJS (ex: "The service ID is invalid")
+      const errorMsg = error?.text || error?.message || "Erro desconhecido de configuração.";
+      addNotification(`Falha envio e-mail (${email}): ${errorMsg}`, 'error');
     }
   };
 
@@ -183,6 +186,15 @@ const App: React.FC = () => {
     if (showLoader) setIsSyncing(false);
   }, [sheetUrl, hasInitialLoad]);
 
+  // Inicializa o EmailJS apenas uma vez ao carregar o app
+  useEffect(() => {
+    try {
+      emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+    } catch (e) {
+      console.error("Falha ao inicializar EmailJS:", e);
+    }
+  }, []);
+
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -193,7 +205,6 @@ const App: React.FC = () => {
       const savedUser = localStorage.getItem('sao_current_user');
       if (savedUser) setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
       await syncData();
-      emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
     };
 
     initApp();
