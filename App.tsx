@@ -255,10 +255,10 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou na SAO do 6º BBM o material: (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Plantonista responsável pela entrega: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça este registro, procure a SAO imediatamente.`;
+      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou na SAO do 6º BBM o material: (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Plantonista responsável pela entrega: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
       await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM");
 
-      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${borrowerRank} ${borrowerWarName} (militar responsável). Caso verifique qualquer inconsistência entre em contato com o CBU do dia.`;
+      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${borrowerRank} ${borrowerWarName} (militar responsável). Caso verifique qualquer inconsistência entre em contato com a SAO e o CBU do dia. Tel: (33) 3279-3600`;
       await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
       
     } else {
@@ -305,10 +305,10 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msgBorrower = `Olá ${returnTarget.rank} ${returnTarget.warName}, confirmamos a devolução do material (${returnTarget.material}) na SAO do 6º BBM. Recebido por: ${authState.user.rank} ${authState.user.warName}.`;
+      const msgBorrower = `Olá ${returnTarget.rank} ${returnTarget.warName}, confirmamos a devolução do material (${returnTarget.material}) na SAO do 6º BBM. Recebido por: ${authState.user.rank} ${authState.user.warName}. Caso verifique qualquer inconsistência entre em contato com a SAO e com o CBU do dia. Tel: (33) 3279-3600`;
       await sendMovementEmail(returnTarget.bm, msgBorrower, "Devolução Confirmada - SAO 6º BBM");
 
-      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu o material (${returnTarget.material}) do militar (${returnTarget.rank} ${returnTarget.warName}) caso verifique inconsistências entre em contato com o SAO ou CBU de serviço hoje`;
+      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu o material (${returnTarget.material}) do militar (${returnTarget.rank} ${returnTarget.warName}) caso verifique inconsistências entre em contato com o SAO ou CBU de serviço hoje - Tel: (33) 3279-3600`;
       await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM");
 
     } else {
