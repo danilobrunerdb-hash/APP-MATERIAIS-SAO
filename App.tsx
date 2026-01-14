@@ -42,7 +42,7 @@ const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxcnYdNcVBB
 
 const EMAILJS_CONFIG = {
   SERVICE_ID: "TESTE SAO", 
-  TEMPLATE_ID: "template_epzy7h4", 
+  TEMPLATE_ID: "template_1u4h5ia", 
   PUBLIC_KEY: "F0L0nHY7l2OI-DgpO"
 };
 
