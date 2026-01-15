@@ -31,6 +31,7 @@ export interface Movement {
   dateCheckout: string;
   estimatedReturnDate?: string;
   material: string;
+  origin?: string; // Novo campo para local de retirada (SAO, Viatura, etc.)
   type: MaterialType;
   status: MovementStatus;
   dateReturn?: string;

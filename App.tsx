@@ -35,13 +35,15 @@ import {
   AlertCircle,
   Filter,
   ArrowRight,
-  AlertOctagon
+  AlertOctagon,
+  MapPin,
+  Trash2,
+  Layers
 } from 'lucide-react';
 
-const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxcnYdNcVBBgMhy1BM0OnZRNX-ohhQlsy44ADh8uVTZF2baINYTLT3qgDfTXG5FM-ie/exec";
+const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzAZ9qXRjhCzvawDN_qZq7eG8uM-NsT8A2VxVcKlePoheT3fbMS7RGGqKjDQrl30__4/exec";
 
 const EMAILJS_CONFIG = {
-  // ATENÇÃO: O SERVICE_ID não pode ter espaços. Pegue o ID correto no painel do EmailJS (ex: service_xxxx).
   SERVICE_ID: "TESTE SAO", 
   TEMPLATE_ID: "template_1u4h5ia", 
   PUBLIC_KEY: "F0L0nHY7l2OI-DgpO"
@@ -91,6 +93,15 @@ interface Notification {
   id: number;
 }
 
+interface CartItem {
+  id: string;
+  material: string;
+  reason: string;
+  type: MaterialType;
+  origin: string;
+  estimatedReturn: string;
+}
+
 const App: React.FC = () => {
   const [authState, setAuthState] = useState<AuthState>({ user: null, isVisitor: false });
   const [activeTab, setActiveTab] = useState<'checkout' | 'checkin' | 'history'>('checkout');
@@ -112,27 +123,35 @@ const App: React.FC = () => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
-  // Login Form states (Plantonista)
+  // Login Form states
   const [formRank, setFormRank] = useState('');
   const [formName, setFormName] = useState('');
   const [formBm, setFormBm] = useState('');
 
-  // Checkout Form states (Militar que retira)
+  // Checkout Form states
   const [borrowerRank, setBorrowerRank] = useState('');
   const [borrowerName, setBorrowerName] = useState('');
   const [borrowerBm, setBorrowerBm] = useState('');
+  
+  // Item specific states
   const [checkoutMaterial, setCheckoutMaterial] = useState('');
   const [checkoutReason, setCheckoutReason] = useState('');
   const [checkoutType, setCheckoutType] = useState<MaterialType>(MaterialType.TERRESTRE);
+  const [checkoutOrigin, setCheckoutOrigin] = useState('SAO');
   const [checkoutEstimatedReturn, setCheckoutEstimatedReturn] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
     return d.toISOString().split('T')[0];
   });
   
+  // Cart state for multi-origin
+  const [checkoutCart, setCheckoutCart] = useState<CartItem[]>([]);
+
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
-  const [pendingObservations, setPendingObservations] = useState<Record<string, string>>({});
-  const [returnTarget, setReturnTarget] = useState<Movement | null>(null);
+  
+  // Return States
+  const [selectedReturnIds, setSelectedReturnIds] = useState<string[]>([]);
+  const [pendingObservations, setPendingObservations] = useState('');
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
   const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
@@ -160,7 +179,6 @@ const App: React.FC = () => {
       addNotification(`E-mail enviado para ${email}`, 'success');
     } catch (error: any) {
       console.error("Erro EmailJS:", error);
-      // Extrai a mensagem de erro específica do EmailJS (ex: "The service ID is invalid")
       const errorMsg = error?.text || error?.message || "Erro desconhecido de configuração.";
       addNotification(`Falha envio e-mail (${email}): ${errorMsg}`, 'error');
     }
@@ -186,7 +204,6 @@ const App: React.FC = () => {
     if (showLoader) setIsSyncing(false);
   }, [sheetUrl, hasInitialLoad]);
 
-  // Inicializa o EmailJS apenas uma vez ao carregar o app
   useEffect(() => {
     try {
       emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
@@ -222,31 +239,58 @@ const App: React.FC = () => {
 
   const handleSyncManually = () => syncData(true);
 
+  const addItemToCart = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkoutMaterial.trim()) return;
+
+    const newItem: CartItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      material: checkoutMaterial,
+      reason: checkoutReason || 'Não informado',
+      type: checkoutType,
+      origin: checkoutOrigin,
+      estimatedReturn: checkoutEstimatedReturn
+    };
+
+    setCheckoutCart([...checkoutCart, newItem]);
+    
+    // Reset item fields but keep borrower info
+    setCheckoutMaterial('');
+    setCheckoutReason('');
+    setCheckoutType(MaterialType.TERRESTRE);
+    addNotification("Item adicionado à lista", "success");
+  };
+
+  const removeItemFromCart = (id: string) => {
+    setCheckoutCart(prev => prev.filter(item => item.id !== id));
+  };
+
   const handleCheckoutFinal = async () => {
-    if (!authState.user || !hasInitialLoad) return;
+    if (!authState.user || !hasInitialLoad || checkoutCart.length === 0) return;
     setIsSaving(true);
 
     const names = borrowerName.trim().split(/\s+/);
     const uppercaseWords = names.filter(n => n === n.toUpperCase() && n.length >= 2);
     const borrowerWarName = uppercaseWords.length > 0 ? uppercaseWords.join(' ') : names[names.length - 1];
 
-    const newMovement: Movement = {
-      id: Math.random().toString(36).substr(2, 9),
+    const newMovements: Movement[] = checkoutCart.map(item => ({
+      id: item.id,
       bm: borrowerBm, 
       name: borrowerName, 
       warName: borrowerWarName,
       rank: borrowerRank, 
       dateCheckout: new Date().toISOString(),
-      estimatedReturnDate: checkoutEstimatedReturn, 
-      material: checkoutMaterial,
-      reason: checkoutReason || 'Não informado', 
-      type: checkoutType, 
+      estimatedReturnDate: item.estimatedReturn, 
+      material: item.material,
+      reason: item.reason, 
+      type: item.type,
+      origin: item.origin,
       status: MovementStatus.PENDENTE,
-      dutyOfficerBm: authState.user.bm,
-      dutyOfficerName: `${authState.user.rank} ${authState.user.warName}`
-    };
+      dutyOfficerBm: authState.user!.bm,
+      dutyOfficerName: `${authState.user!.rank} ${authState.user!.warName}`
+    }));
     
-    const updated = [newMovement, ...movements];
+    const updated = [...newMovements, ...movements];
     setMovements(updated);
     localStorage.setItem('sao_movements', JSON.stringify(updated));
     
@@ -255,10 +299,12 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou na SAO do 6º BBM o material: (${checkoutMaterial}). Previsão de devolução: ${formatDateOnly(checkoutEstimatedReturn)}. Plantonista responsável pela entrega: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
+      const itemsList = newMovements.map(m => `- ${m.material} (Origem: ${m.origin || 'SAO'})`).join('\n');
+
+      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\nCaso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
       await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM");
 
-      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de Plantonista da SAO repassou os seguintes itens (${checkoutMaterial}) que ficaram sob posse do ${borrowerRank} ${borrowerWarName} (militar responsável). Caso verifique qualquer inconsistência entre em contato com a SAO e o CBU do dia. Tel: (33) 3279-3600`;
+      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. Tel: (33) 3279-3600`;
       await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
       
     } else {
@@ -266,8 +312,7 @@ const App: React.FC = () => {
       addNotification("Aviso: Dados salvos localmente, sync pendente.", "error");
     }
     
-    setCheckoutMaterial(''); 
-    setCheckoutReason(''); 
+    setCheckoutCart([]);
     setBorrowerBm('');
     setBorrowerName('');
     setBorrowerRank('');
@@ -276,13 +321,21 @@ const App: React.FC = () => {
     setActiveTab('history');
   };
 
+  const toggleReturnSelection = (id: string) => {
+    setSelectedReturnIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
   const handleReturnFinal = async () => {
-    if (!authState.user || !returnTarget || !hasInitialLoad) return;
+    if (!authState.user || selectedReturnIds.length === 0 || !hasInitialLoad) return;
     setIsSaving(true);
-    const obs = pendingObservations[returnTarget.id] || 'Sem observações.';
+    const obs = pendingObservations || 'Sem observações.';
+    
+    const targets = movements.filter(m => selectedReturnIds.includes(m.id));
     
     const updated = movements.map(m => {
-      if (m.id === returnTarget.id) {
+      if (selectedReturnIds.includes(m.id)) {
         return {
           ...m, 
           status: MovementStatus.DEVOLVIDO, 
@@ -305,10 +358,20 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      const msgBorrower = `Olá ${returnTarget.rank} ${returnTarget.warName}, confirmamos a devolução do material (${returnTarget.material}) na SAO do 6º BBM. Recebido por: ${authState.user.rank} ${authState.user.warName}. Caso verifique qualquer inconsistência entre em contato com a SAO e com o CBU do dia. Tel: (33) 3279-3600`;
-      await sendMovementEmail(returnTarget.bm, msgBorrower, "Devolução Confirmada - SAO 6º BBM");
+      // Group emails by borrower to avoid spam
+      const uniqueBorrowers = Array.from(new Set(targets.map(t => t.bm)));
+      
+      for (const bBm of uniqueBorrowers) {
+        const bItems = targets.filter(t => t.bm === bBm);
+        const bInfo = bItems[0]; 
+        const itemsList = bItems.map(m => `- ${m.material} (Origem: ${m.origin})`).join('\n');
 
-      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu o material (${returnTarget.material}) do militar (${returnTarget.rank} ${returnTarget.warName}) caso verifique inconsistências entre em contato com o SAO ou CBU de serviço hoje - Tel: (33) 3279-3600`;
+        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e o CBU do dia. Tel: (33) 3279-3600`;
+        await sendMovementEmail(bBm, msgBorrower, "Devolução Confirmada - SAO 6º BBM");
+      }
+
+      const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName})`).join('\n');
+      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais:\n${allItemsList}\nTel: (33) 3279-3600`;
       await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM");
 
     } else {
@@ -316,7 +379,8 @@ const App: React.FC = () => {
       addNotification("Devolução registrada localmente. Sync pendente.", "error");
     }
     
-    setReturnTarget(null);
+    setSelectedReturnIds([]);
+    setPendingObservations('');
     setShowReturnConfirm(false);
     setIsSaving(false);
   };
@@ -332,7 +396,8 @@ const App: React.FC = () => {
         m.reason || '',
         m.warName || '',
         m.receiverWarName || '',
-        m.dutyOfficerName || ''
+        m.dutyOfficerName || '',
+        m.origin || 'SAO' // Fix: Default to SAO so it matches displayed text for legacy items
       ].some(f => f.toLowerCase().includes(term));
       return matchesStatus && matchesSearch;
     });
@@ -468,60 +533,103 @@ const App: React.FC = () => {
               <h2 className="text-xl font-bold text-slate-800 uppercase mb-8 flex items-center gap-2">
                 <ClipboardList className="w-6 h-6 text-red-600" /> Registro de Entrega de Material
               </h2>
-              <form onSubmit={(e) => { e.preventDefault(); setShowCheckoutConfirm(true); }} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <div className="space-y-5">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-4">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Dados do Militar Retirante</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posto/Graduação</label>
-                          <select className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={borrowerRank} onChange={(e) => setBorrowerRank(e.target.value)} required>
-                            <option value="">Selecione...</option>
-                            {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº BM</label>
-                          <input type="text" placeholder="Ex: 123.456-7" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={borrowerBm} onChange={(e) => setBorrowerBm(formatBM(e.target.value))} required />
-                        </div>
+              
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 mb-8">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1"><User className="w-3 h-3"/> Militar Retirante (Responsável)</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posto/Graduação</label>
+                    <select className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={borrowerRank} onChange={(e) => setBorrowerRank(e.target.value)}>
+                      <option value="">Selecione...</option>
+                      {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº BM</label>
+                    <input type="text" placeholder="Ex: 123.456-7" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={borrowerBm} onChange={(e) => setBorrowerBm(formatBM(e.target.value))} />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                    <input type="text" placeholder="Ex: PAULO Santos" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={borrowerName} onChange={(e) => setBorrowerName(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <form onSubmit={addItemToCart} className="lg:col-span-2 space-y-5">
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição do Material</label>
+                      <textarea placeholder="Ex: 03 Mosquetões; 01 baudrier; 02 cordas 60m" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[100px] font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all" value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><MapPin className="w-3 h-3"/> Origem do Material</label>
+                        <input list="origins" type="text" placeholder="Ex: SAO, ABTS 10004..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={checkoutOrigin} onChange={(e) => setCheckoutOrigin(e.target.value)} required />
+                        <datalist id="origins">
+                          <option value="SAO" />
+                          <option value="ABTS 10004" />
+                          <option value="ABTS 01" />
+                          <option value="USA 01" />
+                          <option value="UR 01" />
+                        </datalist>
                       </div>
-                      <div className="mt-4 space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo (GUERRA em CAIXA ALTA)</label>
-                        <input type="text" placeholder="Ex: PAULO Santos da Silva" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={borrowerName} onChange={(e) => setBorrowerName(e.target.value)} required />
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Previsão Retorno</label>
+                        <input type="date" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutEstimatedReturn} onChange={(e) => setCheckoutEstimatedReturn(e.target.value)} required />
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição Detalhada do Material</label>
-                      <textarea placeholder="Ex: 03 Mosquetões, 02 polias, 01 Bolsa APH" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[120px] font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all" value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} required />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Motivo</label>
+                        <input type="text" placeholder="TPB, Manutenção, Ocorrência, Curso, Treinamento" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutReason} onChange={(e) => setCheckoutReason(e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo</label>
+                        <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutType} onChange={(e) => setCheckoutType(e.target.value as MaterialType)}>
+                            {MATERIAL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Motivo do Acautelamento</label>
-                      <input type="text" placeholder="Treinamento, Manutenção, Ocorrência" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutReason} onChange={(e) => setCheckoutReason(e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Previsão de Retorno Estimada</label>
-                      <input type="date" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={checkoutEstimatedReturn} onChange={(e) => setCheckoutEstimatedReturn(e.target.value)} required />
-                    </div>
+
+                    <button type="submit" className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg uppercase flex items-center justify-center gap-2 transition-all active:scale-95">
+                      <PlusCircle className="w-5 h-5" /> Adicionar à Lista
+                    </button>
+                </form>
+
+                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 flex flex-col h-full">
+                  <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest mb-4 flex items-center gap-2">
+                    <Layers className="w-4 h-4"/> Itens para Retirada ({checkoutCart.length})
+                  </h3>
+                  <div className="flex-1 overflow-y-auto space-y-3 mb-4 max-h-[300px]">
+                    {checkoutCart.length === 0 ? (
+                      <p className="text-center text-slate-400 text-sm italic py-10">Nenhum item adicionado ainda.</p>
+                    ) : (
+                      checkoutCart.map(item => (
+                        <div key={item.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm relative group">
+                          <button onClick={() => removeItemFromCart(item.id)} className="absolute top-2 right-2 text-slate-300 hover:text-red-500 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <p className="font-bold text-slate-800 text-sm pr-6">{item.material}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                             <span className="text-[9px] uppercase font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">{item.origin}</span>
+                             <span className="text-[9px] text-slate-400">{item.type}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Tipo de Material </label>
-                    <div className="grid grid-cols-1 gap-2">
-                      {MATERIAL_TYPES.map(t => (
-                        <button key={t} type="button" onClick={() => setCheckoutType(t)} className={`flex justify-between items-center p-4 rounded-xl border transition-all ${checkoutType === t ? 'border-red-600 bg-red-50 text-red-700 font-bold shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                          <span className="text-[10px] uppercase font-bold">{t}</span>
-                          {checkoutType === t && <CheckCircle2 className="w-4 h-4" />}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <button 
+                    onClick={() => setShowCheckoutConfirm(true)} 
+                    disabled={checkoutCart.length === 0 || !borrowerBm || !borrowerName || !borrowerRank}
+                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl shadow-xl uppercase flex items-center justify-center gap-3 border-b-4 border-green-800 transition-all active:scale-95 mt-auto"
+                  >
+                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                    Finalizar Cautela
+                  </button>
                 </div>
-                <button type="submit" disabled={!hasInitialLoad || isSaving} className="w-full bg-red-700 hover:bg-red-800 disabled:bg-slate-300 text-white font-bold py-5 rounded-2xl shadow-xl uppercase flex items-center justify-center gap-3 border-b-4 border-red-900 transition-all active:scale-95">
-                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
-                  {isSaving ? "Gravando Registro..." : "Confirmar Entrega"}
-                </button>
-              </form>
+              </div>
             </div>
           )}
 
@@ -533,34 +641,46 @@ const App: React.FC = () => {
                 </h2>
                 <div className="w-full md:w-96 relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                  <input type="text" placeholder="Filtrar por Militar ou BM..." className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium outline-none" value={checkinSearchTerm} onChange={(e) => setCheckinSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Filtrar por Militar, BM, Origem..." className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium outline-none" value={checkinSearchTerm} onChange={(e) => setCheckinSearchTerm(e.target.value)} />
                 </div>
               </div>
+              
+              {selectedReturnIds.length > 0 && (
+                <div className="fixed bottom-20 right-6 z-50 animate-in slide-in-from-bottom-5">
+                   <button onClick={() => setShowReturnConfirm(true)} className="bg-green-600 text-white font-black py-4 px-8 rounded-full shadow-2xl border-4 border-white flex items-center gap-3 hover:scale-105 transition-transform">
+                      <CheckCircle2 className="w-6 h-6" /> Receber {selectedReturnIds.length} Itens
+                   </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 gap-4">
                 {movements.filter(m => m.status === MovementStatus.PENDENTE).filter(m => 
-                  [m.name, m.material, m.bm].some(f => (f || '').toLowerCase().includes(checkinSearchTerm.toLowerCase()))
+                  [m.name, m.warName, m.material, m.bm, m.origin || 'SAO'].some(f => (f || '').toLowerCase().includes(checkinSearchTerm.toLowerCase()))
                 ).map(m => {
                   const overdue = isOverdue(m.estimatedReturnDate, m.status);
+                  const isSelected = selectedReturnIds.includes(m.id);
                   return (
-                    <div key={m.id} className={`border rounded-2xl p-6 transition-all flex flex-col md:flex-row justify-between gap-6 group ${overdue ? 'bg-red-50 border-red-100 hover:bg-red-100/50' : 'bg-slate-50/50 hover:bg-white border-slate-100'}`}>
+                    <div key={m.id} className={`border rounded-2xl p-4 transition-all flex items-start gap-4 group ${overdue ? 'bg-red-50 border-red-100' : 'bg-slate-50/50 hover:bg-white border-slate-100'} ${isSelected ? 'ring-2 ring-green-500 bg-green-50' : ''}`}>
+                      <div className="pt-2">
+                         <input type="checkbox" checked={isSelected} onChange={() => toggleReturnSelection(m.id)} className="w-5 h-5 rounded-md border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer" />
+                      </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex flex-col md:flex-row md:items-center gap-2 mb-1">
                           <h4 className="font-black text-lg uppercase text-slate-800 leading-tight">{m.rank} {m.warName}</h4>
-                          {overdue && <span className="bg-red-600 text-white text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1"><AlertOctagon className="w-2.5 h-2.5" /> ATRASADO</span>}
+                          <div className="flex gap-2">
+                            {overdue && <span className="bg-red-600 text-white text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse flex items-center gap-1"><AlertOctagon className="w-2.5 h-2.5" /> ATRASADO</span>}
+                            <span className="bg-slate-200 text-slate-600 text-[8px] px-2 py-0.5 rounded-full font-black uppercase flex items-center gap-1"><MapPin className="w-2.5 h-2.5" /> {m.origin || 'SAO'}</span>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
                           <p className="text-[11px] text-slate-400 font-bold">BM {m.bm}</p>
                           <p className="text-[11px] text-slate-400 font-bold">Retirado em: {formatDateTime(m.dateCheckout)}</p>
                           <p className={`text-[11px] font-black uppercase ${overdue ? 'text-red-600' : 'text-slate-400'}`}>Previsão: {formatDateOnly(m.estimatedReturnDate)}</p>
                         </div>
-                        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm text-sm text-slate-700 font-medium italic">
+                        <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-sm text-slate-700 font-medium italic">
                           "{m.material}"
                         </div>
-                        <div className="mt-2 text-[9px] font-bold text-slate-400 uppercase">Plantonista que entregou: {m.dutyOfficerName}</div>
                       </div>
-                      <button onClick={() => { setReturnTarget(m); setShowReturnConfirm(true); }} className="bg-green-600 hover:bg-green-700 text-white font-black px-8 py-4 rounded-xl uppercase text-[10px] self-center shadow-lg border-b-4 border-green-800 transition-all active:scale-95 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" /> Receber Material
-                      </button>
                     </div>
                   );
                 })}
@@ -574,7 +694,7 @@ const App: React.FC = () => {
                    <div className="flex flex-col xl:flex-row gap-6 mb-8 items-start xl:items-center">
                       <div className="flex-1 w-full relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="text" placeholder="Filtrar histórico..." className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 focus:ring-red-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input type="text" placeholder="Filtrar por nome, material, origem..." className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 focus:ring-red-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                       </div>
                       <div className="flex flex-wrap items-center gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200">
                         <button onClick={() => setStatusFilter('all')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-white/50'}`}>Todos</button>
@@ -589,6 +709,7 @@ const App: React.FC = () => {
                           <tr className="text-[9px] lg:text-[8px] font-black text-slate-400 uppercase tracking-widest">
                             <th className="px-5 py-3">Militar Responsável</th>
                             <th className="px-5 py-3">Descrição Material</th>
+                            <th className="px-5 py-3">Origem</th>
                             <th className="px-5 py-3">Datas (Saída/Prev)</th>
                             <th className="px-5 py-3">Entregue por</th>
                             <th className="px-5 py-3">Recebido por</th>
@@ -607,6 +728,12 @@ const App: React.FC = () => {
                                 <td className="py-5 px-5 border-y border-slate-100">
                                   <div className="font-bold text-slate-700 max-w-xs leading-relaxed">{m.material}</div>
                                   <div className="text-[8px] uppercase font-black text-slate-400 mt-1">{m.type}</div>
+                                </td>
+                                <td className="py-5 px-5 border-y border-slate-100">
+                                   <div className="flex items-center gap-1.5 text-[10px] lg:text-[9px] font-bold text-slate-600 uppercase bg-slate-100 px-2 py-1 rounded-md w-fit">
+                                      <MapPin className="w-3 h-3 text-slate-400" />
+                                      {m.origin || 'SAO'}
+                                   </div>
                                 </td>
                                 <td className="py-5 px-5 border-y border-slate-100 whitespace-nowrap">
                                   <div className="flex flex-col gap-1">
@@ -646,7 +773,7 @@ const App: React.FC = () => {
                                 </td>
                               </tr>
                             );
-                          }) : <tr><td colSpan={6} className="py-20 text-center text-slate-400 font-medium italic">Nenhum registro encontrado.</td></tr>}
+                          }) : <tr><td colSpan={7} className="py-20 text-center text-slate-400 font-medium italic">Nenhum registro encontrado.</td></tr>}
                         </tbody>
                       </table>
                    </div>
@@ -687,25 +814,30 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {showReturnConfirm && returnTarget && (
+      {showReturnConfirm && selectedReturnIds.length > 0 && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
             <h3 className="text-2xl font-black uppercase tracking-tight text-green-600 mb-6 flex items-center gap-2">
                <CheckCircle2 className="w-6 h-6" /> Confirmar Devolução
             </h3>
-            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100 italic text-slate-600 text-sm">
-              "{returnTarget.material}"
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100 text-slate-600 text-sm max-h-[150px] overflow-y-auto">
+              <p className="font-bold mb-2">Itens selecionados ({selectedReturnIds.length}):</p>
+              <ul className="list-disc pl-5 space-y-1 text-xs">
+                 {movements.filter(m => selectedReturnIds.includes(m.id)).map(m => (
+                   <li key={m.id}>{m.material} <span className="text-slate-400">({m.origin})</span></li>
+                 ))}
+              </ul>
             </div>
             <textarea 
               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-green-500" 
-              placeholder="Descreva o estado do material or observações pertinentes..."
-              value={pendingObservations[returnTarget.id] || ''}
-              onChange={(e) => setPendingObservations(prev => ({ ...prev, [returnTarget.id]: e.target.value }))}
+              placeholder="Descreva o estado dos materiais ou observações pertinentes para este lote..."
+              value={pendingObservations}
+              onChange={(e) => setPendingObservations(e.target.value)}
             />
             <div className="flex gap-3 mt-6">
               <button disabled={isSaving} onClick={() => setShowReturnConfirm(false)} className="flex-1 py-4 bg-slate-100 font-bold rounded-xl uppercase hover:bg-slate-200">Cancelar</button>
               <button disabled={isSaving || !hasInitialLoad} onClick={handleReturnFinal} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl uppercase shadow-xl flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all">
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Confirmar Recebimento
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Receber Lote
               </button>
             </div>
           </div>
@@ -716,7 +848,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
             <h3 className="text-2xl font-black uppercase tracking-tight text-amber-600 mb-6 flex items-center gap-2">
-              <AlertTriangle className="w-6 h-6" /> Confirmar Registro de Saída
+              <AlertTriangle className="w-6 h-6" /> Confirmar Cautela
             </h3>
             <div className="bg-slate-50 p-6 rounded-2xl border text-sm space-y-4 mb-6">
                <div className="flex justify-between border-b pb-2">
@@ -728,12 +860,15 @@ const App: React.FC = () => {
                  <p className="font-bold text-slate-800">{authState.user?.rank} {authState.user?.warName}</p>
                </div>
                <div className="pt-2">
-                 <p className="font-black text-slate-400 uppercase text-[10px]">Material:</p>
-                 <p className="font-bold text-slate-800">{checkoutMaterial}</p>
-               </div>
-               <div className="pt-2 border-t">
-                 <p className="text-[10px] text-slate-400 uppercase font-black">Previsão para Devolução:</p>
-                 <p className="font-black text-red-600">{formatDateOnly(checkoutEstimatedReturn)}</p>
+                 <p className="font-black text-slate-400 uppercase text-[10px] mb-2">Lista de Materiais:</p>
+                 <div className="max-h-[150px] overflow-y-auto space-y-2">
+                    {checkoutCart.map(item => (
+                       <div key={item.id} className="bg-white p-2 rounded border border-slate-100 text-xs">
+                          <span className="font-bold">{item.material}</span>
+                          <span className="block text-[10px] text-slate-400">Origem: {item.origin} | Prev: {formatDateOnly(item.estimatedReturn)}</span>
+                       </div>
+                    ))}
+                 </div>
                </div>
             </div>
             <div className="flex gap-3">
