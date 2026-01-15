@@ -371,7 +371,7 @@ const App: React.FC = () => {
       }
 
       const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName})`).join('\n');
-      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais:\n${allItemsList}\nTel: (33) 3279-3600`;
+      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais:\n${allItemsList}.\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e CBU do dia imediatamente. Tel: (33) 3279-3600`;
       await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM");
 
     } else {
