@@ -304,7 +304,7 @@ const App: React.FC = () => {
       const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\nCaso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
       await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM");
 
-      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. Tel: (33) 3279-3600`;
+      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. \n Caso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
       await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
       
     } else {
@@ -370,7 +370,8 @@ const App: React.FC = () => {
         await sendMovementEmail(bBm, msgBorrower, "Devolução Confirmada - SAO 6º BBM");
       }
 
-      const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName})`).join('\n');
+      // Correção solicitada: Incluindo a origem no resumo para o recebedor (Plantonista)
+      const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName}) - (Origem: ${m.origin || 'SAO'})`).join('\n');
       const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais:\n${allItemsList}.\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e CBU do dia imediatamente. Tel: (33) 3279-3600`;
       await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM");
 
