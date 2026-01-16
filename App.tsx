@@ -302,10 +302,10 @@ const App: React.FC = () => {
       const itemsList = newMovements.map(m => `- ${m.material} (Origem: ${m.origin || 'SAO'})`).join('\n');
 
       const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\nCaso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
-      await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM");
+      await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM / Sede");
 
       const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. \n Caso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
-      await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - Plantonista SAO");
+      await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - SAO 6º BBM / Sede");
       
     } else {
       setSyncError(true);
@@ -367,13 +367,13 @@ const App: React.FC = () => {
         const itemsList = bItems.map(m => `- ${m.material} (Origem: ${m.origin})`).join('\n');
 
         const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e o CBU do dia. Tel: (33) 3279-3600`;
-        await sendMovementEmail(bBm, msgBorrower, "Devolução Confirmada - SAO 6º BBM");
+        await sendMovementEmail(bBm, msgBorrower, "Devolução Confirmada - SAO 6º BBM / Sede");
       }
 
       // Correção solicitada: Incluindo a origem no resumo para o recebedor (Plantonista)
       const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName}) - (Origem: ${m.origin || 'SAO'})`).join('\n');
       const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais:\n${allItemsList}.\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e CBU do dia imediatamente. Tel: (33) 3279-3600`;
-      await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM");
+      await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM / Sede");
 
     } else {
       setSyncError(true);
@@ -414,7 +414,7 @@ const App: React.FC = () => {
               alt="Logo CBMMG" 
               className="w-24 mx-auto mb-6 drop-shadow-xl" 
             />
-            <h1 className="text-4xl font-black uppercase tracking-tighter">SAO - 6º BBM</h1>
+            <h1 className="text-4xl font-black uppercase tracking-tighter">SAO - 6º BBM / SEDE</h1>
             <p className="text-[10px] font-bold mt-2 opacity-90 tracking-widest uppercase">Acesso do Plantonista</p>
           </div>
           <div className="p-8">
@@ -462,7 +462,7 @@ const App: React.FC = () => {
               className="w-8 h-8 drop-shadow-md" 
             />
             <div className="flex flex-col">
-              <h1 className="font-black text-xl leading-none uppercase tracking-tighter">SAO - 6º BBM</h1>
+              <h1 className="font-black text-xl leading-none uppercase tracking-tighter">SAO - 6º BBM / SEDE</h1>
               <div className="flex items-center gap-2 mt-1">
                 {!isOnline ? (
                   <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-red-100 bg-red-900/60 px-2 py-0.5 rounded-full border border-red-400/30 animate-pulse">
