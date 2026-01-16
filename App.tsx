@@ -566,13 +566,13 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><MapPin className="w-3 h-3"/> Origem do Material</label>
-                        <input list="origins" type="text" placeholder="Ex: SAO, ABTS 10004..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={checkoutOrigin} onChange={(e) => setCheckoutOrigin(e.target.value)} required />
+                        <input list="origins" type="text" placeholder="Ex: SAO, ABTS 1033..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={checkoutOrigin} onChange={(e) => setCheckoutOrigin(e.target.value)} required />
                         <datalist id="origins">
                           <option value="SAO" />
-                          <option value="ABTS 10004" />
-                          <option value="ABTS 01" />
-                          <option value="USA 01" />
-                          <option value="UR 01" />
+                          <option value="ABTS 1033" />
+                          <option value="UR 5566" />
+                          <option value="UR 2088" />
+                          <option value="ACA 2168" />
                         </datalist>
                       </div>
                       <div className="space-y-1">
