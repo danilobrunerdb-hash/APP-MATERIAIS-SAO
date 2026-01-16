@@ -573,6 +573,7 @@ const App: React.FC = () => {
                           <option value="UR 5566" />
                           <option value="UR 2088" />
                           <option value="ACA 2168" />
+                          <option value="AT 0696" />
                         </datalist>
                       </div>
                       <div className="space-y-1">
