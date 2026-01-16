@@ -38,7 +38,9 @@ import {
   AlertOctagon,
   MapPin,
   Trash2,
-  Layers
+  Layers,
+  BookOpen,
+  ArrowLeft
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzAZ9qXRjhCzvawDN_qZq7eG8uM-NsT8A2VxVcKlePoheT3fbMS7RGGqKjDQrl30__4/exec";
@@ -119,6 +121,7 @@ const App: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
@@ -404,9 +407,102 @@ const App: React.FC = () => {
     });
   }, [movements, searchTerm, statusFilter]);
 
+  if (showInstructions) {
+    return (
+      <div className="min-h-screen flex flex-col items-center p-4 bg-slate-50">
+        <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-right duration-500">
+           <div className="bg-slate-900 p-6 flex items-center justify-between text-white">
+              <h2 className="text-xl font-bold uppercase tracking-wider flex items-center gap-3">
+                <BookOpen className="w-6 h-6" /> Manual de Instruções
+              </h2>
+              <button 
+                onClick={() => setShowInstructions(false)}
+                className="bg-white/10 hover:bg-white/20 p-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+              >
+                <ArrowLeft className="w-4 h-4" /> Voltar
+              </button>
+           </div>
+           <div className="p-8 space-y-8 overflow-y-auto max-h-[80vh]">
+              
+              <section className="space-y-3">
+                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
+                  1. Login do Plantonista
+                </h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Apenas algum <strong>Militar de serviço da Ala Operacional</strong> ou o <strong>Plantonista da SAO</strong> deve realizar o login. Os dados (Posto, Nome e BM) ficarão registrados como "Responsável pela entrega" ou "Recebedor". O nome de guerra é identificado automaticamente se escrito com uma palavra em CAIXA ALTA (Ex: João SILVA).
+                </p>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
+                  2. Cautela de Material (Saída)
+                </h3>
+                <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm">
+                  <li>Identifique o militar que está retirando o material (BM e Nome).</li>
+                  <li>Adicione os itens um a um no "carrinho" de acordo com a origem. Ex: 01 prancha, 01 Bolsa APH UR 5566 seria uma única adição. 03 mosquetões; 01 polia da SAO seria outra adição ....</li>
+                  <li><strong>Campo Origem:</strong> Selecione a origem (SAO, Viatura, etc). A seta indica opções pré-definidas, mas você pode digitar uma nova.</li>
+                  <li>Clique em "Finalizar Cautela" para salvar. O sistema envia e-mail automático para o retirante e para o plantonista.</li>
+                </ul>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
+                  3. Devolução (Entrada)
+                </h3>
+                <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm">
+                  <li>Acesse a aba <strong>Devolução</strong>.</li>
+                  <li>Localize os itens usando a barra de busca (filtre por nome, BM ou material).</li>
+                  <li>Selecione as caixas de seleção dos itens que estão sendo devolvidos.</li>
+                  <li>Clique no botão flutuante <strong>"Receber X Itens"</strong>.</li>
+                  <li>Adicione observações se houver avarias.</li>
+                  <li>Caso haja devolução parcial, receba os itens a abra uma nova movimentação de cautela de materiais. (conste isso no campo observação)</li>
+                </ul>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
+                  4. Histórico e Relatórios
+                </h3>
+                <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm">
+                  <li>A aba <strong>Histórico</strong> exibe todas as movimentações registradas no sistema.</li>
+                  <li>Utilize a <strong>Barra de Pesquisa</strong> para localizar registros por nome, material ou origem.</li>
+                  <li>Os botões de filtro (Pendências/Devolvidos) ajudam a isolar o que está em aberto.</li>
+                  <li><strong>Análise Inteligente (IA):</strong> No final da página, o botão "Analisar Carga" gera um relatório executivo automático sobre atrasos e pontos de atenção.</li>
+                </ul>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
+                  5. Modo Offline e Sincronização
+                </h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  O sistema salva dados automaticamente no dispositivo se a internet cair. Quando a conexão retornar, um ícone amarelo de "Sync Pendente" pode aparecer. Clique no botão de sincronizar (ícone circular de setas) no topo da tela para enviar os dados para a planilha.
+                </p>
+              </section>
+
+              <div className="bg-slate-100 p-4 rounded-xl text-xs text-slate-500 font-medium text-center">
+                Dúvidas técnicas? Procure o CBU do dia ou a 1ª Cia. Operacional.
+              </div>
+           </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!authState.user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950 relative">
+        <button 
+          onClick={() => setShowInstructions(true)}
+          className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors flex items-center gap-2 group"
+          title="Manual de Instruções"
+        >
+          <span className="text-[10px] uppercase font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Instruções de Uso</span>
+          <div className="p-2 bg-white/5 rounded-full border border-white/10 group-hover:border-white/30">
+            <BookOpen className="w-5 h-5" />
+          </div>
+        </button>
+
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
           <div className="bg-red-700 p-10 text-center text-white">
             <img 
@@ -584,7 +680,7 @@ const App: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Motivo</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Motivo (Opcional)</label>
                         <input type="text" placeholder="TPB, Manutenção, Ocorrência, Curso, Treinamento" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutReason} onChange={(e) => setCheckoutReason(e.target.value)} />
                       </div>
                       <div className="space-y-1">
