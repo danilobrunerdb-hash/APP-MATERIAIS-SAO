@@ -39,13 +39,13 @@ import {
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL_SEDE = "https://script.google.com/macros/s/AKfycbzAZ9qXRjhCzvawDN_qZq7eG8uM-NsT8A2VxVcKlePoheT3fbMS7RGGqKjDQrl30__4/exec";
-// URL Placeholder para PEMAD (usuário deve configurar ou pode ser atualizada aqui)
-const PERMANENT_SHEET_URL_PEMAD = ""; 
+// URL Configurada para PEMAD
+const PERMANENT_SHEET_URL_PEMAD = "https://script.google.com/macros/s/AKfycbxrI2lk12BqOvn1ZzYHhOaNq9gdyhOozUYxNg1P93HppIOy3RXAHw8nVBx6jskpXJoQbQ/exec"; 
 
 // --- CONFIGURAÇÃO DE LOGOS ---
 // Substitua as URLs abaixo pelos links dos arquivos PNG informados
 const LOGO_SEDE_URL = "https://lh3.googleusercontent.com/pw/AP1GczOz2AhM552qAgdmxiIOyRGmSjpy4CB-NXjG8hi4lrNw7qPO3nvnN2-tBgf_rC2BZ9eRLdT4RMZao6KYQH2491BiXKZTYg2P7dG40u6QFD34WFRxzrBKDPRBDC86-z5kToRz1UtxVhrADJxoQo4ysL1_=w487-h512-s-no-gm?authuser=0"; 
-const LOGO_PEMAD_URL = "https://lh3.googleusercontent.com/pw/AP1GczMvIlMs7eKG9sx6A1Vq5Ky9ydrR77vEkyTAx48Jtzzhmsl1imo9ulVRbP2cBVm5GsZQtKG8FtRhAiIspGVHg9ls8-e5sEUTOFNTT9-pGxY9h0WzvySkhzLBKxdMoXxvI7yexMAQbCnjYFLXZB94EZEm=w259-h260-s-no-gm?authuser=0"; 
+const LOGO_PEMAD_URL = "https://lh3.googleusercontent.com/pw/AP1GczO6BpZloEeO-gyjV_gu_HrsF8KlPEsAOUq4UgycHBUzMT-iILU1P54YKghilwlTmt0SCtrVKxG-rrUXKcjFXpaQA0Cw7dAcYYGnPlFNi66lP0IiQtOLw_eO_rohMz1vP_WI6l9rvfa6vJsewgchVj0w=w194-h197-s-no-gm?authuser=0"; 
 
 const UNITS: Record<UnitID, UnitConfig> = {
   SEDE: {
@@ -744,9 +744,6 @@ const App: React.FC = () => {
 
             <button onClick={handleSyncManually} className={`p-2 rounded-xl transition-all hover:bg-black/20 bg-black/10 ${isSyncing ? 'animate-spin' : ''}`} title="Sincronizar">
               <RefreshCw className="w-5 h-5" />
-            </button>
-            <button onClick={() => { setShowConfig(true); }} className="p-2 rounded-xl transition-all hover:bg-black/20" title="Configurar Planilha">
-                <Settings className="w-5 h-5" />
             </button>
             <button onClick={() => { 
               // Clear current user
