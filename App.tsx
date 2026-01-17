@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { AuthState, MilitaryPerson, Movement, MovementStatus, MaterialType } from './types';
+import { AuthState, MilitaryPerson, Movement, MovementStatus, MaterialType, UnitConfig, UnitID } from './types';
 import { MATERIAL_TYPES, RANKS } from './constants';
 import { getSmartSummary } from './geminiService';
 import { saveToSheets, fetchFromSheets, sendEmailViaGas } from './sheetService';
@@ -18,31 +18,80 @@ import {
   Calendar, 
   Clock, 
   X,
-  Info,
   Loader2,
   Settings,
-  CloudCheck,
   CloudOff,
   RefreshCw,
-  Database,
   User,
   Wifi,
   WifiOff,
   Save,
-  Mail,
-  Check,
   AlertCircle,
-  Filter,
   ArrowRight,
   AlertOctagon,
   MapPin,
   Trash2,
   Layers,
   BookOpen,
-  ArrowLeft
+  ArrowLeft,
+  Building2,
+  TentTree
 } from 'lucide-react';
 
-const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzAZ9qXRjhCzvawDN_qZq7eG8uM-NsT8A2VxVcKlePoheT3fbMS7RGGqKjDQrl30__4/exec";
+const PERMANENT_SHEET_URL_SEDE = "https://script.google.com/macros/s/AKfycbzAZ9qXRjhCzvawDN_qZq7eG8uM-NsT8A2VxVcKlePoheT3fbMS7RGGqKjDQrl30__4/exec";
+// URL Placeholder para PEMAD (usuário deve configurar ou pode ser atualizada aqui)
+const PERMANENT_SHEET_URL_PEMAD = ""; 
+
+// --- CONFIGURAÇÃO DE LOGOS ---
+// Substitua as URLs abaixo pelos links dos arquivos PNG informados
+const LOGO_SEDE_URL = "https://lh3.googleusercontent.com/pw/AP1GczOz2AhM552qAgdmxiIOyRGmSjpy4CB-NXjG8hi4lrNw7qPO3nvnN2-tBgf_rC2BZ9eRLdT4RMZao6KYQH2491BiXKZTYg2P7dG40u6QFD34WFRxzrBKDPRBDC86-z5kToRz1UtxVhrADJxoQo4ysL1_=w487-h512-s-no-gm?authuser=0"; 
+const LOGO_PEMAD_URL = "https://lh3.googleusercontent.com/pw/AP1GczMvIlMs7eKG9sx6A1Vq5Ky9ydrR77vEkyTAx48Jtzzhmsl1imo9ulVRbP2cBVm5GsZQtKG8FtRhAiIspGVHg9ls8-e5sEUTOFNTT9-pGxY9h0WzvySkhzLBKxdMoXxvI7yexMAQbCnjYFLXZB94EZEm=w259-h260-s-no-gm?authuser=0"; 
+
+const UNITS: Record<UnitID, UnitConfig> = {
+  SEDE: {
+    id: 'SEDE',
+    name: 'SAO - 6º BBM / SEDE',
+    shortName: 'SEDE 6º BBM',
+    defaultSheetUrl: PERMANENT_SHEET_URL_SEDE,
+    theme: 'red'
+  },
+  PEMAD: {
+    id: 'PEMAD',
+    name: 'PEMAD / 6º BBM',
+    shortName: 'PEMAD',
+    defaultSheetUrl: PERMANENT_SHEET_URL_PEMAD,
+    theme: 'orange'
+  }
+};
+
+const THEMES = {
+  red: {
+    primary: 'bg-red-700',
+    primaryHover: 'hover:bg-red-800',
+    primaryRing: 'focus:ring-red-500',
+    border: 'border-red-900',
+    text: 'text-red-700',
+    textDark: 'text-red-900',
+    textLight: 'text-red-200',
+    lightBg: 'bg-red-50',
+    lightBorder: 'border-red-200',
+    iconColor: 'text-red-600',
+    gradient: 'from-red-700 to-red-900'
+  },
+  orange: {
+    primary: 'bg-orange-600',
+    primaryHover: 'hover:bg-orange-700',
+    primaryRing: 'focus:ring-orange-500',
+    border: 'border-orange-800',
+    text: 'text-orange-700',
+    textDark: 'text-orange-900',
+    textLight: 'text-orange-100', // Better contrast on dark orange
+    lightBg: 'bg-orange-50',
+    lightBorder: 'border-orange-200',
+    iconColor: 'text-orange-600',
+    gradient: 'from-orange-600 to-orange-800'
+  }
+};
 
 const formatBM = (value: string): string => {
   if (!value) return "";
@@ -98,6 +147,9 @@ interface CartItem {
 }
 
 const App: React.FC = () => {
+  // Unit State
+  const [selectedUnit, setSelectedUnit] = useState<UnitConfig | null>(null);
+
   const [authState, setAuthState] = useState<AuthState>({ user: null, isVisitor: false });
   const [activeTab, setActiveTab] = useState<'checkout' | 'checkin' | 'history'>('checkout');
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -105,7 +157,7 @@ const App: React.FC = () => {
   const [checkinSearchTerm, setCheckinSearchTerm] = useState(''); 
   const [statusFilter, setStatusFilter] = useState<'all' | MovementStatus>('all');
   
-  const [sheetUrl, setSheetUrl] = useState<string>(localStorage.getItem('sao_sheet_url') || PERMANENT_SHEET_URL);
+  const [sheetUrl, setSheetUrl] = useState<string>("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -150,6 +202,19 @@ const App: React.FC = () => {
   const [pendingObservations, setPendingObservations] = useState('');
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
+  // Theme helper
+  const theme = useMemo(() => {
+    return selectedUnit ? THEMES[selectedUnit.theme] : THEMES.red;
+  }, [selectedUnit]);
+
+  // Load selected unit from storage on mount
+  useEffect(() => {
+    const savedUnitId = localStorage.getItem('sao_selected_unit_id');
+    if (savedUnitId && UNITS[savedUnitId as UnitID]) {
+      setSelectedUnit(UNITS[savedUnitId as UnitID]);
+    }
+  }, []);
+
   const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
     setNotifications(prev => [...prev, { message, type, id }]);
@@ -175,17 +240,22 @@ const App: React.FC = () => {
   };
 
   const syncData = useCallback(async (showLoader = true) => {
+    if (!selectedUnit || !sheetUrl) return;
     if (showLoader) setIsSyncing(true);
+    
+    // Check local storage key specific to unit
+    const storageKey = `sao_movements_${selectedUnit.id}`;
+
     const data = await fetchFromSheets(sheetUrl);
     if (data) {
       setMovements(data);
-      localStorage.setItem('sao_movements', JSON.stringify(data));
+      localStorage.setItem(storageKey, JSON.stringify(data));
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       setHasInitialLoad(true);
     } else {
       setSyncError(true);
-      const cached = localStorage.getItem('sao_movements');
+      const cached = localStorage.getItem(storageKey);
       if (cached && !hasInitialLoad) {
         try {
           setMovements(JSON.parse(cached));
@@ -196,18 +266,47 @@ const App: React.FC = () => {
       }
     }
     if (showLoader) setIsSyncing(false);
-  }, [sheetUrl, hasInitialLoad]);
+  }, [sheetUrl, hasInitialLoad, selectedUnit]);
 
+  // Initialize App when Unit is Selected
   useEffect(() => {
+    if (!selectedUnit) return;
+
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Initialize Sheet URL for this unit
+    const storageUrlKey = `sao_sheet_url_${selectedUnit.id}`;
+    const storedUrl = localStorage.getItem(storageUrlKey);
+    const urlToUse = storedUrl || selectedUnit.defaultSheetUrl;
+    setSheetUrl(urlToUse);
+
     const initApp = async () => {
-      const savedUser = localStorage.getItem('sao_current_user');
+      const storageUserKey = `sao_current_user_${selectedUnit.id}`;
+      const savedUser = localStorage.getItem(storageUserKey);
       if (savedUser) setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
-      await syncData();
+      
+      // We need to pass the URL manually here because setSheetUrl state update might not have flushed yet for the syncData callback
+      if (urlToUse) {
+         // Logic duplicated from syncData to ensure immediate execution with correct URL
+         const storageKey = `sao_movements_${selectedUnit.id}`;
+         const data = await fetchFromSheets(urlToUse);
+         if (data) {
+            setMovements(data);
+            localStorage.setItem(storageKey, JSON.stringify(data));
+            setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+            setSyncError(false);
+            setHasInitialLoad(true);
+          } else {
+            setSyncError(true);
+            const cached = localStorage.getItem(storageKey);
+            if (cached) {
+              try { setMovements(JSON.parse(cached)); setHasInitialLoad(true); } catch(e){}
+            }
+          }
+      }
     };
 
     initApp();
@@ -221,7 +320,14 @@ const App: React.FC = () => {
       window.removeEventListener('offline', handleOffline);
       clearInterval(autoSyncInterval);
     };
-  }, [syncData]);
+  }, [selectedUnit]); // Re-run if unit changes
+
+  // Re-trigger sync if sheetURL changes manually
+  useEffect(() => {
+    if(selectedUnit && sheetUrl && hasInitialLoad) {
+        syncData(false);
+    }
+  }, [sheetUrl]);
 
   const handleSyncManually = () => syncData(true);
 
@@ -252,7 +358,7 @@ const App: React.FC = () => {
   };
 
   const handleCheckoutFinal = async () => {
-    if (!authState.user || !hasInitialLoad || checkoutCart.length === 0) return;
+    if (!authState.user || !hasInitialLoad || checkoutCart.length === 0 || !selectedUnit) return;
     setIsSaving(true);
 
     const names = borrowerName.trim().split(/\s+/);
@@ -278,7 +384,7 @@ const App: React.FC = () => {
     
     const updated = [...newMovements, ...movements];
     setMovements(updated);
-    localStorage.setItem('sao_movements', JSON.stringify(updated));
+    localStorage.setItem(`sao_movements_${selectedUnit.id}`, JSON.stringify(updated));
     
     const success = await saveToSheets(sheetUrl, updated);
     if (success) {
@@ -287,11 +393,11 @@ const App: React.FC = () => {
       
       const itemsList = newMovements.map(m => `- ${m.material} (Origem: ${m.origin || 'SAO'})`).join('\n');
 
-      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais na SAO do 6º BBM Sede:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\nCaso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600\n At.te 1ª Cia. Operacional`;
-      await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM / Sede");
+      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais na ${selectedUnit.name}:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\nCaso não reconheça este registro, procure a chefia imediata. Tel: (33) 3279-3600\n At.te ${selectedUnit.name}`;
+      await sendMovementEmail(borrowerBm, msgBorrower, `Retirada de Material - ${selectedUnit.shortName}`);
 
-      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de plantonista da SAO 6º BBM Sede, entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. \n Caso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600\n At.te 1ª Cia. Operacional`;
-      await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - SAO 6º BBM / Sede");
+      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de plantonista da ${selectedUnit.name}, entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. \n Caso não reconheça este registro, procure a chefia imediata. Tel: (33) 3279-3600\n At.te ${selectedUnit.name}`;
+      await sendMovementEmail(authState.user.bm, msgDutyOfficer, `Registro de Saída - ${selectedUnit.shortName}`);
       
     } else {
       setSyncError(true);
@@ -314,7 +420,7 @@ const App: React.FC = () => {
   };
 
   const handleReturnFinal = async () => {
-    if (!authState.user || selectedReturnIds.length === 0 || !hasInitialLoad) return;
+    if (!authState.user || selectedReturnIds.length === 0 || !hasInitialLoad || !selectedUnit) return;
     setIsSaving(true);
     const obs = pendingObservations || 'Sem observações.';
     
@@ -337,14 +443,13 @@ const App: React.FC = () => {
     });
     
     setMovements(updated);
-    localStorage.setItem('sao_movements', JSON.stringify(updated));
+    localStorage.setItem(`sao_movements_${selectedUnit.id}`, JSON.stringify(updated));
 
     const success = await saveToSheets(sheetUrl, updated);
     if (success) {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
-      // Group emails by borrower to avoid spam
       const uniqueBorrowers = Array.from(new Set(targets.map(t => t.bm)));
       
       for (const bBm of uniqueBorrowers) {
@@ -352,14 +457,13 @@ const App: React.FC = () => {
         const bInfo = bItems[0]; 
         const itemsList = bItems.map(m => `- ${m.material} (Origem: ${m.origin})`).join('\n');
 
-        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais na SAO do 6º BBM Sede:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e o CBU do dia. Tel: (33) 3279-3600\n At.te 1ª Cia. Operacional`;
-        await sendMovementEmail(bBm, msgBorrower, "Devolução Confirmada - SAO 6º BBM / Sede");
+        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais na ${selectedUnit.name}:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato conosco. Tel: (33) 3279-3600\n At.te ${selectedUnit.name}`;
+        await sendMovementEmail(bBm, msgBorrower, `Devolução Confirmada - ${selectedUnit.shortName}`);
       }
 
-      // Correção solicitada: Incluindo a origem no resumo para o recebedor (Plantonista)
       const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName}) - (Origem: ${m.origin || 'SAO'})`).join('\n');
-      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais na SAO 6º BBM Sede:\n${allItemsList}.\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e CBU do dia imediatamente. Tel: (33) 3279-3600.\n At.te 1ª Cia. Operacional`;
-      await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM / Sede");
+      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais na ${selectedUnit.name}:\n${allItemsList}.\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato imediatamente. Tel: (33) 3279-3600.\n At.te ${selectedUnit.name}`;
+      await sendMovementEmail(authState.user.bm, msgReceiver, `Recebimento de Material - ${selectedUnit.shortName}`);
 
     } else {
       setSyncError(true);
@@ -384,17 +488,92 @@ const App: React.FC = () => {
         m.warName || '',
         m.receiverWarName || '',
         m.dutyOfficerName || '',
-        m.origin || 'SAO' // Fix: Default to SAO so it matches displayed text for legacy items
+        m.origin || 'SAO'
       ].some(f => f.toLowerCase().includes(term));
       return matchesStatus && matchesSearch;
     });
   }, [movements, searchTerm, statusFilter]);
 
+  // --- SCREEN 1: UNIT SELECTION ---
+  if (!selectedUnit) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950 relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_0%,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
+        
+        <div className="max-w-4xl w-full relative z-10 animate-in fade-in zoom-in-95 duration-700">
+          <div className="text-center mb-6 md:mb-12">
+            <img 
+              src="https://www.bombeiros.mg.gov.br/images/logo.png" 
+              alt="Logo CBMMG" 
+              className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 drop-shadow-2xl" 
+            />
+            <h1 className="text-2xl md:text-5xl font-black text-white uppercase tracking-tighter mb-1 md:mb-2">Controle de Materiais</h1>
+            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-sm">6º Batalhão de Bombeiros Militar</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+            <button 
+              onClick={() => {
+                const unit = UNITS.SEDE;
+                localStorage.setItem('sao_selected_unit_id', unit.id);
+                setSelectedUnit(unit);
+              }}
+              className="group relative bg-white rounded-3xl p-4 md:p-8 transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_-10px_rgba(220,38,38,0.6)] overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-red-600 to-red-900 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="bg-red-50 group-hover:bg-white/20 p-3 md:p-4 rounded-full mb-3 md:mb-6 transition-colors flex items-center justify-center">
+                  <img 
+                    src={LOGO_SEDE_URL} 
+                    alt="Logo Sede" 
+                    className="w-14 h-14 md:w-20 md:h-20 object-contain drop-shadow-md" 
+                  />
+                </div>
+                <h2 className="text-lg md:text-2xl font-black uppercase text-slate-800 group-hover:text-white mb-2">Sede / 1ª Cia</h2>
+                <p className="text-xs font-bold text-slate-400 group-hover:text-red-100 uppercase tracking-widest">Seção de Apoio Operacional</p>
+                <div className="mt-8 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 flex items-center gap-2 text-white font-bold text-sm uppercase">
+                  Acessar Sistema <ArrowRight className="w-4 h-4" />
+                </div>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => {
+                const unit = UNITS.PEMAD;
+                localStorage.setItem('sao_selected_unit_id', unit.id);
+                setSelectedUnit(unit);
+              }}
+              className="group relative bg-white rounded-3xl p-4 md:p-8 transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_-10px_rgba(234,88,12,0.6)] overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-800 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="bg-orange-50 group-hover:bg-white/20 p-3 md:p-4 rounded-full mb-3 md:mb-6 transition-colors flex items-center justify-center">
+                   <img 
+                    src={LOGO_PEMAD_URL} 
+                    alt="Logo PEMAD" 
+                    className="w-16 h-16 md:w-28 md:h-28 object-contain drop-shadow-md" 
+                  />
+                </div>
+                <h2 className="text-lg md:text-2xl font-black uppercase text-slate-800 group-hover:text-white mb-2">PEMAD</h2>
+                <p className="text-xs font-bold text-slate-400 group-hover:text-orange-100 uppercase tracking-widest">Pelotão de Emergências Ambientais</p>
+                <div className="mt-8 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 flex items-center gap-2 text-white font-bold text-sm uppercase">
+                  Acessar Sistema <ArrowRight className="w-4 h-4" />
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SCREEN 2 & 3 (INSTRUCTIONS & LOGIN) ---
   if (showInstructions) {
     return (
       <div className="min-h-screen flex flex-col items-center p-4 bg-slate-50">
         <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-right duration-500">
-           <div className="bg-slate-900 p-6 flex items-center justify-between text-white">
+           <div className={`p-6 flex items-center justify-between text-white ${theme.primary}`}>
               <h2 className="text-xl font-bold uppercase tracking-wider flex items-center gap-3">
                 <BookOpen className="w-6 h-6" /> Manual de Instruções
               </h2>
@@ -406,66 +585,40 @@ const App: React.FC = () => {
               </button>
            </div>
            <div className="p-8 space-y-8 overflow-y-auto max-h-[80vh]">
-              
+              <div className={`p-4 rounded-xl text-xs font-bold uppercase tracking-wide border ${theme.lightBg} ${theme.lightBorder} ${theme.text}`}>
+                Unidade Selecionada: {selectedUnit.name}
+              </div>
               <section className="space-y-3">
-                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
+                <h3 className={`text-lg font-black uppercase ${theme.text} flex items-center gap-2 border-b pb-2`}>
                   1. Login do Plantonista
                 </h3>
                 <p className="text-slate-600 text-sm leading-relaxed">
-                  Apenas algum <strong>Militar de serviço da Ala Operacional</strong> ou o <strong>Plantonista da SAO</strong> deve realizar o login. Os dados (Posto, Nome e BM) ficarão registrados como "Responsável pela entrega" ou "Recebedor". O nome de guerra é identificado automaticamente se escrito com uma palavra em CAIXA ALTA (Ex: João SILVA).
+                  Apenas algum <strong>Militar de serviço da Ala Operacional</strong> ou o <strong>Plantonista responsável</strong> deve realizar o login. Os dados (Posto, Nome e BM) ficarão registrados como "Responsável pela entrega" ou "Recebedor".
                 </p>
               </section>
 
               <section className="space-y-3">
-                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
+                <h3 className={`text-lg font-black uppercase ${theme.text} flex items-center gap-2 border-b pb-2`}>
                   2. Cautela de Material (Saída)
                 </h3>
                 <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm">
                   <li>Identifique o militar que está retirando o material (BM e Nome).</li>
-                  <li>Adicione os itens um a um no "carrinho" de acordo com a origem. Ex: 01 prancha, 01 Bolsa APH UR 5566 seria uma única adição. 03 mosquetões; 01 polia da SAO seria outra adição ....</li>
-                  <li><strong>Campo Origem:</strong> Selecione a origem (SAO, Viatura, etc). A seta indica opções pré-definidas, mas você pode digitar uma nova.</li>
-                  <li>Clique em "Finalizar Cautela" para salvar. O sistema envia e-mail automático para o retirante e para o plantonista.</li>
+                  <li>Adicione os itens um a um no "carrinho" de acordo com a origem.</li>
+                  <li><strong>Campo Origem:</strong> Selecione a origem (SAO, Viatura, Galpão, etc).</li>
+                  <li>Clique em "Finalizar Cautela" para salvar. O sistema envia e-mail automático.</li>
                 </ul>
               </section>
 
               <section className="space-y-3">
-                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
+                <h3 className={`text-lg font-black uppercase ${theme.text} flex items-center gap-2 border-b pb-2`}>
                   3. Devolução (Entrada)
                 </h3>
                 <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm">
                   <li>Acesse a aba <strong>Devolução</strong>.</li>
-                  <li>Localize os itens usando a barra de busca (filtre por nome, BM ou material).</li>
                   <li>Selecione as caixas de seleção dos itens que estão sendo devolvidos.</li>
                   <li>Clique no botão flutuante <strong>"Receber X Itens"</strong>.</li>
-                  <li>Adicione observações se houver avarias.</li>
-                  <li>Caso haja devolução parcial, receba os itens a abra uma nova movimentação de cautela de materiais. (conste isso no campo observação)</li>
                 </ul>
               </section>
-
-              <section className="space-y-3">
-                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
-                  4. Histórico e Relatórios
-                </h3>
-                <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm">
-                  <li>A aba <strong>Histórico</strong> exibe todas as movimentações registradas no sistema.</li>
-                  <li>Utilize a <strong>Barra de Pesquisa</strong> para localizar registros por nome, material ou origem.</li>
-                  <li>Os botões de filtro (Pendências/Devolvidos) ajudam a isolar o que está em aberto.</li>
-                  <li><strong>Análise Inteligente (IA):</strong> No final da página, o botão "Analisar Carga" gera um relatório executivo automático sobre atrasos e pontos de atenção.</li>
-                </ul>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-lg font-black uppercase text-red-700 flex items-center gap-2 border-b pb-2">
-                  5. Modo Offline e Sincronização
-                </h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  O sistema salva dados automaticamente no dispositivo se a internet cair. Quando a conexão retornar, um ícone amarelo de "Sync Pendente" pode aparecer. Clique no botão de sincronizar (ícone circular de setas) no topo da tela para enviar os dados para a planilha.
-                </p>
-              </section>
-
-              <div className="bg-slate-100 p-4 rounded-xl text-xs text-slate-500 font-medium text-center">
-                Dúvidas técnicas? Procure o CBU do dia ou a 1ª Cia. Operacional.
-              </div>
            </div>
         </div>
       </div>
@@ -475,25 +628,34 @@ const App: React.FC = () => {
   if (!authState.user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950 relative">
-        <button 
-          onClick={() => setShowInstructions(true)}
-          className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors flex items-center gap-2 group"
-          title="Manual de Instruções"
-        >
-          <span className="text-[10px] uppercase font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Instruções de Uso</span>
-          <div className="p-2 bg-white/5 rounded-full border border-white/10 group-hover:border-white/30">
-            <BookOpen className="w-5 h-5" />
-          </div>
-        </button>
-
         <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-          <div className="bg-red-700 p-10 text-center text-white">
+          <div className={`relative p-10 text-center text-white bg-gradient-to-b ${theme.gradient}`}>
+            
+            <button 
+               onClick={() => {
+                 setSelectedUnit(null);
+                 localStorage.removeItem('sao_selected_unit_id');
+               }} 
+               className="absolute top-4 left-4 p-2.5 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-all text-white shadow-lg border border-white/10"
+               title="Trocar Unidade"
+            >
+               <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <button 
+              onClick={() => setShowInstructions(true)}
+              className="absolute top-4 right-4 p-2.5 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-all text-white shadow-lg border border-white/10"
+              title="Manual de Instruções"
+            >
+              <BookOpen className="w-5 h-5" />
+            </button>
+
             <img 
               src="https://www.bombeiros.mg.gov.br/images/logo.png" 
               alt="Logo CBMMG" 
               className="w-24 mx-auto mb-6 drop-shadow-xl" 
             />
-            <h1 className="text-4xl font-black uppercase tracking-tighter">SAO - 6º BBM / SEDE</h1>
+            <h1 className="text-3xl font-black uppercase tracking-tighter leading-tight">{selectedUnit.name}</h1>
             <p className="text-[10px] font-bold mt-2 opacity-90 tracking-widest uppercase">Acesso do Plantonista</p>
           </div>
           <div className="p-8">
@@ -504,25 +666,38 @@ const App: React.FC = () => {
               const warNameFound = uppercaseWords.length > 0 ? uppercaseWords.join(' ') : names[names.length - 1];
               const user = { rank: formRank, name: formName, warName: warNameFound, bm: formBm, cpf: '' };
               setAuthState({ user, isVisitor: false });
-              localStorage.setItem('sao_current_user', JSON.stringify(user));
-              await syncData(true);
+              localStorage.setItem(`sao_current_user_${selectedUnit.id}`, JSON.stringify(user));
+              // Trigger sync immediately with user loaded
+              if (sheetUrl) {
+                const storageKey = `sao_movements_${selectedUnit.id}`;
+                const data = await fetchFromSheets(sheetUrl);
+                if (data) {
+                  setMovements(data);
+                  localStorage.setItem(storageKey, JSON.stringify(data));
+                  setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+                  setSyncError(false);
+                  setHasInitialLoad(true);
+                }
+              }
             }} className="space-y-5">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posto/Graduação (Plantonista)</label>
-                <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={formRank} onChange={(e) => setFormRank(e.target.value)} required>
+                <select className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={formRank} onChange={(e) => setFormRank(e.target.value)} required>
                   <option value="">Selecione...</option>
                   {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo (GUERRA em CAIXA ALTA)</label>
-                <input type="text" placeholder="Ex: JOÃO Augusto Silva" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={formName} onChange={(e) => setFormName(e.target.value)} required />
+                <input type="text" placeholder="Ex: JOÃO Augusto Silva" className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={formName} onChange={(e) => setFormName(e.target.value)} required />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº BM (Plantonista)</label>
-                <input type="text" placeholder="Ex: 123.456-7" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={formBm} onChange={(e) => setFormBm(formatBM(e.target.value))} required />
+                <input type="text" placeholder="Ex: 123.456-7" className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 ${theme.primaryRing} outline-none`} value={formBm} onChange={(e) => setFormBm(formatBM(e.target.value))} required />
               </div>
-              <button type="submit" className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-4 rounded-xl shadow-lg uppercase tracking-widest border-b-4 border-red-900 transition-all active:scale-95 mt-2">Registrar Movimentação</button>
+              <button type="submit" className={`w-full ${theme.primary} ${theme.primaryHover} text-white font-bold py-4 rounded-xl shadow-lg uppercase tracking-widest border-b-4 ${theme.border} transition-all active:scale-95 mt-2`}>
+                Registrar Movimentação
+              </button>
             </form>
           </div>
         </div>
@@ -530,9 +705,10 @@ const App: React.FC = () => {
     );
   }
 
+  // --- MAIN APP ---
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 relative">
-      <header className="bg-red-700 text-white shadow-lg p-4 sticky top-0 z-50">
+      <header className={`${theme.primary} text-white shadow-lg p-4 sticky top-0 z-50`}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <img 
@@ -541,7 +717,7 @@ const App: React.FC = () => {
               className="w-8 h-8 drop-shadow-md" 
             />
             <div className="flex flex-col">
-              <h1 className="font-black text-xl leading-none uppercase tracking-tighter">SAO - 6º BBM / SEDE</h1>
+              <h1 className="font-black text-xl leading-none uppercase tracking-tighter">{selectedUnit.name}</h1>
               <div className="flex items-center gap-2 mt-1">
                 {!isOnline ? (
                   <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-red-100 bg-red-900/60 px-2 py-0.5 rounded-full border border-red-400/30 animate-pulse">
@@ -552,7 +728,7 @@ const App: React.FC = () => {
                     <CloudOff className="w-3 h-3" /> Sync Falhou
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-green-300 bg-green-950/30 px-2 py-0.5 rounded-full border border-green-500/20">
+                  <div className="flex items-center gap-1 text-[8px] font-bold uppercase text-green-100 bg-green-950/30 px-2 py-0.5 rounded-full border border-green-500/20">
                     <Wifi className="w-3 h-3" /> Plantonista Online {lastSync && `(${lastSync})`}
                   </div>
                 )}
@@ -561,20 +737,23 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-red-800/40 rounded-xl border border-white/10">
-              <User className="w-3.5 h-3.5 text-red-200" />
+            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 bg-black/20 rounded-xl border border-white/10`}>
+              <User className={`w-3.5 h-3.5 ${theme.textLight}`} />
               <span className="text-[10px] font-bold uppercase tracking-wider">{authState.user.rank} {authState.user.warName}</span>
             </div>
 
-            <button onClick={handleSyncManually} className={`p-2 rounded-xl transition-all hover:bg-red-800 bg-red-800/20 ${isSyncing ? 'animate-spin' : ''}`} title="Sincronizar">
+            <button onClick={handleSyncManually} className={`p-2 rounded-xl transition-all hover:bg-black/20 bg-black/10 ${isSyncing ? 'animate-spin' : ''}`} title="Sincronizar">
               <RefreshCw className="w-5 h-5" />
             </button>
-            {authState.user.bm === '161.382-7' && (
-              <button onClick={() => { setShowConfig(true); }} className="p-2 rounded-xl transition-all hover:bg-red-800">
+            <button onClick={() => { setShowConfig(true); }} className="p-2 rounded-xl transition-all hover:bg-black/20" title="Configurar Planilha">
                 <Settings className="w-5 h-5" />
-              </button>
-            )}
-            <button onClick={() => { setAuthState({ user: null, isVisitor: false }); localStorage.removeItem('sao_current_user'); }} className="p-2 hover:bg-red-800 rounded-xl transition-all">
+            </button>
+            <button onClick={() => { 
+              // Clear current user
+              setAuthState({ user: null, isVisitor: false }); 
+              localStorage.removeItem(`sao_current_user_${selectedUnit.id}`); 
+              // Note: We do NOT clear selectedUnit here, user goes to login screen of same unit
+            }} className="p-2 hover:bg-black/20 rounded-xl transition-all" title="Sair do Plantão">
               <LogOut className="w-5 h-5" />
             </button>
           </div>
@@ -584,7 +763,7 @@ const App: React.FC = () => {
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[300] flex flex-col gap-2 w-full max-w-sm px-4">
         {notifications.map(n => (
           <div key={n.id} className={`p-4 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider animate-in slide-in-from-bottom-2 duration-300 border backdrop-blur-md ${n.type === 'success' ? 'bg-green-500/90 text-white border-green-400' : 'bg-red-600/90 text-white border-red-500'}`}>
-            {n.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+            {n.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
             <span className="flex-1">{n.message}</span>
             <button onClick={() => setNotifications(prev => prev.filter(notif => notif.id !== n.id))}>
               <X className="w-3 h-3 opacity-60" />
@@ -600,7 +779,7 @@ const App: React.FC = () => {
             { id: 'checkin', icon: ArrowRightLeft, label: 'Devolução' },
             { id: 'history', icon: History, label: 'Histórico' }
           ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all ${activeTab === tab.id ? 'bg-red-700 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all ${activeTab === tab.id ? `${theme.primary} text-white shadow-md` : 'text-slate-500 hover:bg-slate-50'}`}>
               <tab.icon className="w-4 h-4" />
               <span className="text-[10px] sm:text-xs uppercase tracking-wider">{tab.label}</span>
             </button>
@@ -610,8 +789,8 @@ const App: React.FC = () => {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {activeTab === 'checkout' && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-              <h2 className="text-xl font-bold text-slate-800 uppercase mb-8 flex items-center gap-2">
-                <ClipboardList className="w-6 h-6 text-red-600" /> Registro de Entrega de Material
+              <h2 className={`text-xl font-bold text-slate-800 uppercase mb-8 flex items-center gap-2`}>
+                <ClipboardList className={`w-6 h-6 ${theme.text}`} /> Registro de Entrega de Material
               </h2>
               
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 mb-8">
@@ -619,18 +798,18 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Posto/Graduação</label>
-                    <select className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={borrowerRank} onChange={(e) => setBorrowerRank(e.target.value)}>
+                    <select className={`w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={borrowerRank} onChange={(e) => setBorrowerRank(e.target.value)}>
                       <option value="">Selecione...</option>
                       {RANKS.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nº BM</label>
-                    <input type="text" placeholder="Ex: 123.456-7" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={borrowerBm} onChange={(e) => setBorrowerBm(formatBM(e.target.value))} />
+                    <input type="text" placeholder="Ex: 123.456-7" className={`w-full p-3 bg-white border border-slate-200 rounded-xl font-bold focus:ring-2 ${theme.primaryRing} outline-none`} value={borrowerBm} onChange={(e) => setBorrowerBm(formatBM(e.target.value))} />
                   </div>
                   <div className="space-y-1 sm:col-span-2 lg:col-span-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
-                    <input type="text" placeholder="Ex: PAULO Santos" className="w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={borrowerName} onChange={(e) => setBorrowerName(e.target.value)} />
+                    <input type="text" placeholder="Ex: PAULO Santos" className={`w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={borrowerName} onChange={(e) => setBorrowerName(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -639,13 +818,13 @@ const App: React.FC = () => {
                 <form onSubmit={addItemToCart} className="lg:col-span-2 space-y-5">
                    <div className="space-y-1">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição do Material</label>
-                      <textarea placeholder="Ex: 03 Mosquetões; 01 baudrier; 02 cordas 60m" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[100px] font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all" value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} />
+                      <textarea placeholder="Ex: 03 Mosquetões; 01 baudrier; 02 cordas 60m" className={`w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl min-h-[100px] font-medium focus:ring-2 ${theme.primaryRing} outline-none transition-all`} value={checkoutMaterial} onChange={(e) => setCheckoutMaterial(e.target.value)} />
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><MapPin className="w-3 h-3"/> Origem do Material</label>
-                        <input list="origins" type="text" placeholder="Ex: SAO, ABTS 1033..." className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-red-500 outline-none" value={checkoutOrigin} onChange={(e) => setCheckoutOrigin(e.target.value)} required />
+                        <input list="origins" type="text" placeholder="Ex: SAO, Viatura, Galpão..." className={`w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 ${theme.primaryRing} outline-none`} value={checkoutOrigin} onChange={(e) => setCheckoutOrigin(e.target.value)} required />
                         <datalist id="origins">
                           <option value="SAO" />
                           <option value="ABTS 1033" />
@@ -653,22 +832,23 @@ const App: React.FC = () => {
                           <option value="UR 2088" />
                           <option value="ACA 2168" />
                           <option value="AT 0696" />
+                          <option value="Galpão PEMAD" />
                         </datalist>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Previsão Retorno</label>
-                        <input type="date" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutEstimatedReturn} onChange={(e) => setCheckoutEstimatedReturn(e.target.value)} required />
+                        <input type="date" className={`w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={checkoutEstimatedReturn} onChange={(e) => setCheckoutEstimatedReturn(e.target.value)} required />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Motivo (Opcional)</label>
-                        <input type="text" placeholder="TPB, Manutenção, Ocorrência, Curso, Treinamento" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutReason} onChange={(e) => setCheckoutReason(e.target.value)} />
+                        <input type="text" placeholder="TPB, Manutenção, Ocorrência, Curso" className={`w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={checkoutReason} onChange={(e) => setCheckoutReason(e.target.value)} />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo</label>
-                        <select className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-red-500 outline-none" value={checkoutType} onChange={(e) => setCheckoutType(e.target.value as MaterialType)}>
+                        <select className={`w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={checkoutType} onChange={(e) => setCheckoutType(e.target.value as MaterialType)}>
                             {MATERIAL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                       </div>
@@ -717,8 +897,8 @@ const App: React.FC = () => {
           {activeTab === 'checkin' && (
             <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 min-h-[500px]">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-4 border-b gap-4">
-                <h2 className="text-xl font-bold text-slate-800 uppercase flex items-center gap-2">
-                  <ArrowRightLeft className="w-6 h-6 text-red-600" /> Materiais com a Tropa
+                <h2 className={`text-xl font-bold text-slate-800 uppercase flex items-center gap-2`}>
+                  <ArrowRightLeft className={`w-6 h-6 ${theme.text}`} /> Materiais com a Tropa
                 </h2>
                 <div className="w-full md:w-96 relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -775,7 +955,7 @@ const App: React.FC = () => {
                    <div className="flex flex-col xl:flex-row gap-6 mb-8 items-start xl:items-center">
                       <div className="flex-1 w-full relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="text" placeholder="Filtrar por nome, material, origem..." className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 focus:ring-red-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input type="text" placeholder="Filtrar por nome, material, origem..." className={`w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-medium outline-none focus:ring-2 ${theme.primaryRing} transition-all`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                       </div>
                       <div className="flex flex-wrap items-center gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200">
                         <button onClick={() => setStatusFilter('all')} className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-white/50'}`}>Todos</button>
@@ -866,7 +1046,7 @@ const App: React.FC = () => {
                       <Sparkles className="w-8 h-8 text-yellow-400" />
                       <div>
                         <h3 className="font-black text-2xl uppercase tracking-tighter">Relatório Estratégico (Gemini)</h3>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Resumo automático de criticidade SAO</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Resumo automático de criticidade</p>
                       </div>
                     </div>
                     <button 
@@ -965,14 +1145,15 @@ const App: React.FC = () => {
       {showConfig && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden p-6">
-            <h3 className="font-black uppercase text-slate-800 mb-4 flex items-center gap-2"><Settings className="w-5 h-5" /> Endpoint da Planilha</h3>
+            <h3 className="font-black uppercase text-slate-800 mb-4 flex items-center gap-2"><Settings className="w-5 h-5" /> Endpoint da Planilha ({selectedUnit.shortName})</h3>
+            <p className="text-xs text-slate-500 mb-2">Configure aqui a URL do Google Script para o banco de dados desta unidade.</p>
             <input 
               type="text" 
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono mb-4 focus:ring-2 focus:ring-red-500"
               value={sheetUrl}
               onChange={(e) => {
                 setSheetUrl(e.target.value);
-                localStorage.setItem('sao_sheet_url', e.target.value);
+                localStorage.setItem(`sao_sheet_url_${selectedUnit.id}`, e.target.value);
               }}
             />
             <button onClick={async () => { await handleSyncManually(); setShowConfig(false); }} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-xs uppercase hover:bg-black active:scale-95 transition-all">Salvar Configuração</button>
@@ -981,7 +1162,7 @@ const App: React.FC = () => {
       )}
 
       <footer className="p-10 text-center bg-white border-t border-slate-100">
-        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">6º Batalhão de Bombeiros Militar - CBMMG</span>
+        <span className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">{selectedUnit.name}</span>
       </footer>
     </div>
   );

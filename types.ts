@@ -49,3 +49,13 @@ export interface AuthState {
   user: MilitaryPerson | null;
   isVisitor: boolean;
 }
+
+export type UnitID = 'SEDE' | 'PEMAD';
+
+export interface UnitConfig {
+  id: UnitID;
+  name: string;
+  shortName: string;
+  defaultSheetUrl: string;
+  theme: 'red' | 'orange';
+}
