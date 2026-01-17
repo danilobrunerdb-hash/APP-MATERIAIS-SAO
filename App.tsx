@@ -824,15 +824,21 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><MapPin className="w-3 h-3"/> Origem do Material</label>
-                        <input list="origins" type="text" placeholder="Ex: SAO, Viatura, Galpão..." className={`w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 ${theme.primaryRing} outline-none`} value={checkoutOrigin} onChange={(e) => setCheckoutOrigin(e.target.value)} required />
+                        <input list="origins" type="text" placeholder="Ex: SAO, Viatura, SOU..." className={`w-full p-4 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 ${theme.primaryRing} outline-none`} value={checkoutOrigin} onChange={(e) => setCheckoutOrigin(e.target.value)} required />
                         <datalist id="origins">
                           <option value="SAO" />
                           <option value="ABTS 1033" />
+                          <option value="ABTS 9744" />
+                          <option value="AT 0696" />
                           <option value="UR 5566" />
                           <option value="UR 2088" />
+                          <option value="ASM 0252" />
                           <option value="ACA 2168" />
-                          <option value="AT 0696" />
-                          <option value="Galpão PEMAD" />
+                          <option value="ASL 6081" />
+                          <option value="ASL 4675" />
+                          <option value="ASF 2360" />
+                          <option value="ASF 2157" />
+                          <option value="APP 1121" />
                         </datalist>
                       </div>
                       <div className="space-y-1">
