@@ -392,12 +392,13 @@ const App: React.FC = () => {
       setSyncError(false);
       
       const itemsList = newMovements.map(m => `- ${m.material} (Origem: ${m.origin || 'SAO'})`).join('\n');
+      const subjectSuffix = selectedUnit.id === 'PEMAD' ? 'SAO 6º BBM / PEMAD' : selectedUnit.shortName;
 
       const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais na ${selectedUnit.name}:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\nCaso não reconheça este registro, procure a chefia imediata. Tel: (33) 3279-3600\n At.te ${selectedUnit.name}`;
-      await sendMovementEmail(borrowerBm, msgBorrower, `Retirada de Material - ${selectedUnit.shortName}`);
+      await sendMovementEmail(borrowerBm, msgBorrower, `Retirada de Material - ${subjectSuffix}`);
 
       const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de plantonista da ${selectedUnit.name}, entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. \n Caso não reconheça este registro, procure a chefia imediata. Tel: (33) 3279-3600\n At.te ${selectedUnit.name}`;
-      await sendMovementEmail(authState.user.bm, msgDutyOfficer, `Registro de Saída - ${selectedUnit.shortName}`);
+      await sendMovementEmail(authState.user.bm, msgDutyOfficer, `Registro de Saída - ${subjectSuffix}`);
       
     } else {
       setSyncError(true);
@@ -450,6 +451,7 @@ const App: React.FC = () => {
       setLastSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
       setSyncError(false);
       
+      const subjectSuffix = selectedUnit.id === 'PEMAD' ? 'SAO 6º BBM / PEMAD' : selectedUnit.shortName;
       const uniqueBorrowers = Array.from(new Set(targets.map(t => t.bm)));
       
       for (const bBm of uniqueBorrowers) {
@@ -458,12 +460,12 @@ const App: React.FC = () => {
         const itemsList = bItems.map(m => `- ${m.material} (Origem: ${m.origin})`).join('\n');
 
         const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais na ${selectedUnit.name}:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato conosco. Tel: (33) 3279-3600\n At.te ${selectedUnit.name}`;
-        await sendMovementEmail(bBm, msgBorrower, `Devolução Confirmada - ${selectedUnit.shortName}`);
+        await sendMovementEmail(bBm, msgBorrower, `Devolução Confirmada - ${subjectSuffix}`);
       }
 
       const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName}) - (Origem: ${m.origin || 'SAO'})`).join('\n');
       const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais na ${selectedUnit.name}:\n${allItemsList}.\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato imediatamente. Tel: (33) 3279-3600.\n At.te ${selectedUnit.name}`;
-      await sendMovementEmail(authState.user.bm, msgReceiver, `Recebimento de Material - ${selectedUnit.shortName}`);
+      await sendMovementEmail(authState.user.bm, msgReceiver, `Recebimento de Material - ${subjectSuffix}`);
 
     } else {
       setSyncError(true);
@@ -494,84 +496,10 @@ const App: React.FC = () => {
     });
   }, [movements, searchTerm, statusFilter]);
 
-  // --- SCREEN 1: UNIT SELECTION ---
-  if (!selectedUnit) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950 relative overflow-hidden">
-        {/* Decorative background elements */}
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_0%,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
-        
-        <div className="max-w-4xl w-full relative z-10 animate-in fade-in zoom-in-95 duration-700">
-          <div className="text-center mb-6 md:mb-12">
-            <img 
-              src="https://www.bombeiros.mg.gov.br/images/logo.png" 
-              alt="Logo CBMMG" 
-              className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 drop-shadow-2xl" 
-            />
-            <h1 className="text-2xl md:text-5xl font-black text-white uppercase tracking-tighter mb-1 md:mb-2">Controle de Materiais</h1>
-            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-sm">6º Batalhão de Bombeiros Militar</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
-            <button 
-              onClick={() => {
-                const unit = UNITS.SEDE;
-                localStorage.setItem('sao_selected_unit_id', unit.id);
-                setSelectedUnit(unit);
-              }}
-              className="group relative bg-white rounded-3xl p-4 md:p-8 transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_-10px_rgba(220,38,38,0.6)] overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-red-600 to-red-900 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative z-10 flex flex-col items-center text-center">
-                <div className="bg-red-50 group-hover:bg-white/20 p-3 md:p-4 rounded-full mb-3 md:mb-6 transition-colors flex items-center justify-center">
-                  <img 
-                    src={LOGO_SEDE_URL} 
-                    alt="Logo Sede" 
-                    className="w-14 h-14 md:w-20 md:h-20 object-contain drop-shadow-md" 
-                  />
-                </div>
-                <h2 className="text-lg md:text-2xl font-black uppercase text-slate-800 group-hover:text-white mb-2">Sede / 1ª Cia</h2>
-                <p className="text-xs font-bold text-slate-400 group-hover:text-red-100 uppercase tracking-widest">Seção de Apoio Operacional</p>
-                <div className="mt-8 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 flex items-center gap-2 text-white font-bold text-sm uppercase">
-                  Acessar Sistema <ArrowRight className="w-4 h-4" />
-                </div>
-              </div>
-            </button>
-
-            <button 
-              onClick={() => {
-                const unit = UNITS.PEMAD;
-                localStorage.setItem('sao_selected_unit_id', unit.id);
-                setSelectedUnit(unit);
-              }}
-              className="group relative bg-white rounded-3xl p-4 md:p-8 transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_-10px_rgba(234,88,12,0.6)] overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-800 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative z-10 flex flex-col items-center text-center">
-                <div className="bg-orange-50 group-hover:bg-white/20 p-3 md:p-4 rounded-full mb-3 md:mb-6 transition-colors flex items-center justify-center">
-                   <img 
-                    src={LOGO_PEMAD_URL} 
-                    alt="Logo PEMAD" 
-                    className="w-16 h-16 md:w-28 md:h-28 object-contain drop-shadow-md" 
-                  />
-                </div>
-                <h2 className="text-lg md:text-2xl font-black uppercase text-slate-800 group-hover:text-white mb-2">PEMAD</h2>
-                <p className="text-xs font-bold text-slate-400 group-hover:text-orange-100 uppercase tracking-widest">Pelotão de Emergências Ambientais</p>
-                <div className="mt-8 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 flex items-center gap-2 text-white font-bold text-sm uppercase">
-                  Acessar Sistema <ArrowRight className="w-4 h-4" />
-                </div>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- SCREEN 2 & 3 (INSTRUCTIONS & LOGIN) ---
+  // --- SCREEN 0: INSTRUCTIONS (Must be first to overlay on Unit Selection if needed) ---
   if (showInstructions) {
     return (
-      <div className="min-h-screen flex flex-col items-center p-4 bg-slate-50">
+      <div className="min-h-screen flex flex-col items-center p-4 bg-slate-50 relative z-[200]">
         <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-right duration-500">
            <div className={`p-6 flex items-center justify-between text-white ${theme.primary}`}>
               <h2 className="text-xl font-bold uppercase tracking-wider flex items-center gap-3">
@@ -586,7 +514,7 @@ const App: React.FC = () => {
            </div>
            <div className="p-8 space-y-8 overflow-y-auto max-h-[80vh]">
               <div className={`p-4 rounded-xl text-xs font-bold uppercase tracking-wide border ${theme.lightBg} ${theme.lightBorder} ${theme.text}`}>
-                Unidade Selecionada: {selectedUnit.name}
+                Unidade Selecionada: {selectedUnit ? selectedUnit.name : 'Geral (Seleção)'}
               </div>
               <section className="space-y-3">
                 <h3 className={`text-lg font-black uppercase ${theme.text} flex items-center gap-2 border-b pb-2`}>
@@ -620,6 +548,88 @@ const App: React.FC = () => {
                 </ul>
               </section>
            </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SCREEN 1: UNIT SELECTION ---
+  if (!selectedUnit) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950 relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_0%,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
+        
+        <button 
+          onClick={() => setShowInstructions(true)}
+          className="absolute top-4 right-4 z-50 p-2.5 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-all text-white shadow-lg border border-white/10"
+          title="Manual de Instruções"
+        >
+          <BookOpen className="w-5 h-5" />
+        </button>
+
+        <div className="max-w-4xl w-full relative z-10 animate-in fade-in zoom-in-95 duration-700">
+          <div className="text-center mb-6 md:mb-12">
+            <img 
+              src="https://www.bombeiros.mg.gov.br/images/logo.png" 
+              alt="Logo CBMMG" 
+              className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 drop-shadow-2xl" 
+            />
+            <h1 className="text-2xl md:text-5xl font-black text-white uppercase tracking-tighter mb-1 md:mb-2">Controle de Materiais</h1>
+            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-sm">6º Batalhão de Bombeiros Militar</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+            <button 
+              onClick={() => {
+                const unit = UNITS.SEDE;
+                localStorage.setItem('sao_selected_unit_id', unit.id);
+                setSelectedUnit(unit);
+              }}
+              className="group relative bg-white rounded-3xl p-4 md:p-8 transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_-10px_rgba(220,38,38,0.6)] overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-red-600 to-red-900 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="bg-red-50 group-hover:bg-white/20 p-3 md:p-4 rounded-full mb-3 md:mb-6 transition-colors flex items-center justify-center">
+                  <img 
+                    src={LOGO_SEDE_URL} 
+                    alt="Logo Sede" 
+                    className="w-12 h-12 md:w-16 md:h-16 object-contain drop-shadow-md" 
+                  />
+                </div>
+                <h2 className="text-lg md:text-2xl font-black uppercase text-slate-800 group-hover:text-white mb-2">Sede / 1ª Cia</h2>
+                <p className="text-xs font-bold text-slate-400 group-hover:text-red-100 uppercase tracking-widest">Seção de Apoio Operacional</p>
+                <div className="mt-8 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 flex items-center gap-2 text-white font-bold text-sm uppercase">
+                  Acessar Sistema <ArrowRight className="w-4 h-4" />
+                </div>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => {
+                const unit = UNITS.PEMAD;
+                localStorage.setItem('sao_selected_unit_id', unit.id);
+                setSelectedUnit(unit);
+              }}
+              className="group relative bg-white rounded-3xl p-4 md:p-8 transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_-10px_rgba(234,88,12,0.6)] overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-orange-800 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="bg-orange-50 group-hover:bg-white/20 p-3 md:p-4 rounded-full mb-3 md:mb-6 transition-colors flex items-center justify-center">
+                   <img 
+                    src={LOGO_PEMAD_URL} 
+                    alt="Logo PEMAD" 
+                    className="w-14 h-14 md:w-20 md:h-20 object-contain drop-shadow-md" 
+                  />
+                </div>
+                <h2 className="text-lg md:text-2xl font-black uppercase text-slate-800 group-hover:text-white mb-2">PEMAD</h2>
+                <p className="text-xs font-bold text-slate-400 group-hover:text-orange-100 uppercase tracking-widest">Pelotão de Emergências Ambientais</p>
+                <div className="mt-8 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 flex items-center gap-2 text-white font-bold text-sm uppercase">
+                  Acessar Sistema <ArrowRight className="w-4 h-4" />
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     );
