@@ -3,8 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AuthState, MilitaryPerson, Movement, MovementStatus, MaterialType } from './types';
 import { MATERIAL_TYPES, RANKS } from './constants';
 import { getSmartSummary } from './geminiService';
-import { saveToSheets, fetchFromSheets } from './sheetService';
-import emailjs from '@emailjs/browser';
+import { saveToSheets, fetchFromSheets, sendEmailViaGas } from './sheetService';
 
 import { 
   ClipboardList, 
@@ -44,12 +43,6 @@ import {
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL = "https://script.google.com/macros/s/AKfycbzAZ9qXRjhCzvawDN_qZq7eG8uM-NsT8A2VxVcKlePoheT3fbMS7RGGqKjDQrl30__4/exec";
-
-const EMAILJS_CONFIG = {
-  SERVICE_ID: "TESTE SAO", 
-  TEMPLATE_ID: "template_1u4h5ia", 
-  PUBLIC_KEY: "F0L0nHY7l2OI-DgpO"
-};
 
 const formatBM = (value: string): string => {
   if (!value) return "";
@@ -168,22 +161,16 @@ const App: React.FC = () => {
   const sendMovementEmail = async (toBm: string, messageBody: string, subjectTitle: string) => {
     const email = `${toBm.replace(/\D/g, '')}@bombeiros.mg.gov.br`;
     try {
-      await emailjs.send(
-        EMAILJS_CONFIG.SERVICE_ID,
-        EMAILJS_CONFIG.TEMPLATE_ID,
-        {
-          to_email: email,
-          subject: subjectTitle,
-          message: messageBody,
-          content: messageBody
-        },
-        EMAILJS_CONFIG.PUBLIC_KEY
-      );
-      addNotification(`E-mail enviado para ${email}`, 'success');
+      const success = await sendEmailViaGas(sheetUrl, email, subjectTitle, messageBody);
+      if (success) {
+        addNotification(`E-mail enviado para ${email}`, 'success');
+      } else {
+        console.warn("Script de email retornou falha, mas a movimentação seguiu.");
+        addNotification(`Erro ao enviar e-mail para ${email} (verifique planilha)`, 'error');
+      }
     } catch (error: any) {
-      console.error("Erro EmailJS:", error);
-      const errorMsg = error?.text || error?.message || "Erro desconhecido de configuração.";
-      addNotification(`Falha envio e-mail (${email}): ${errorMsg}`, 'error');
+      console.error("Erro Envio Email:", error);
+      addNotification(`Falha envio e-mail (${email})`, 'error');
     }
   };
 
@@ -200,20 +187,16 @@ const App: React.FC = () => {
       setSyncError(true);
       const cached = localStorage.getItem('sao_movements');
       if (cached && !hasInitialLoad) {
-        setMovements(JSON.parse(cached));
-        setHasInitialLoad(true);
+        try {
+          setMovements(JSON.parse(cached));
+          setHasInitialLoad(true);
+        } catch (e) {
+          console.error("Erro ao ler cache", e);
+        }
       }
     }
     if (showLoader) setIsSyncing(false);
   }, [sheetUrl, hasInitialLoad]);
-
-  useEffect(() => {
-    try {
-      emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
-    } catch (e) {
-      console.error("Falha ao inicializar EmailJS:", e);
-    }
-  }, []);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
