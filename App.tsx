@@ -287,10 +287,10 @@ const App: React.FC = () => {
       
       const itemsList = newMovements.map(m => `- ${m.material} (Origem: ${m.origin || 'SAO'})`).join('\n');
 
-      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\nCaso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
+      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais na SAO do 6º BBM Sede:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\nCaso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600\n At.te 1ª Cia. Operacional`;
       await sendMovementEmail(borrowerBm, msgBorrower, "Retirada de Material - SAO 6º BBM / Sede");
 
-      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. \n Caso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600`;
+      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de plantonista da SAO 6º BBM Sede, entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}. \n Caso não reconheça este registro, procure a SAO e o CBU do dia imediatamente. Tel: (33) 3279-3600\n At.te 1ª Cia. Operacional`;
       await sendMovementEmail(authState.user.bm, msgDutyOfficer, "Registro de Saída - SAO 6º BBM / Sede");
       
     } else {
@@ -352,13 +352,13 @@ const App: React.FC = () => {
         const bInfo = bItems[0]; 
         const itemsList = bItems.map(m => `- ${m.material} (Origem: ${m.origin})`).join('\n');
 
-        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e o CBU do dia. Tel: (33) 3279-3600`;
+        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais na SAO do 6º BBM Sede:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e o CBU do dia. Tel: (33) 3279-3600\n At.te 1ª Cia. Operacional`;
         await sendMovementEmail(bBm, msgBorrower, "Devolução Confirmada - SAO 6º BBM / Sede");
       }
 
       // Correção solicitada: Incluindo a origem no resumo para o recebedor (Plantonista)
       const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName}) - (Origem: ${m.origin || 'SAO'})`).join('\n');
-      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais:\n${allItemsList}.\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e CBU do dia imediatamente. Tel: (33) 3279-3600`;
+      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você recebeu os materiais na SAO 6º BBM Sede:\n${allItemsList}.\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e CBU do dia imediatamente. Tel: (33) 3279-3600.\n At.te 1ª Cia. Operacional`;
       await sendMovementEmail(authState.user.bm, msgReceiver, "Recebimento de Material - SAO 6º BBM / Sede");
 
     } else {
