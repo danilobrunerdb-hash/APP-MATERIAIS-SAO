@@ -184,7 +184,7 @@ const App: React.FC = () => {
   // Item specific states
   const [checkoutMaterial, setCheckoutMaterial] = useState('');
   const [checkoutReason, setCheckoutReason] = useState('');
-  const [checkoutType, setCheckoutType] = useState<MaterialType>(MaterialType.TERRESTRE);
+  const [checkoutType, setCheckoutType] = useState<MaterialType>(MaterialType.OUTROS);
   const [checkoutOrigin, setCheckoutOrigin] = useState('SAO');
   const [checkoutEstimatedReturn, setCheckoutEstimatedReturn] = useState(() => {
     const d = new Date();
@@ -349,7 +349,7 @@ const App: React.FC = () => {
     // Reset item fields but keep borrower info
     setCheckoutMaterial('');
     setCheckoutReason('');
-    setCheckoutType(MaterialType.TERRESTRE);
+    setCheckoutType(MaterialType.OUTROS);
     addNotification("Item adicionado à lista", "success");
   };
 
