@@ -57,7 +57,8 @@ import { Movement } from './types';
  *           to: data.to,
  *           subject: data.subject,
  *           body: data.body,
- *           noReply: true
+ *           noReply: true,
+ *           name: "SAO - 6º BBM" // <--- DICA: ALTERE AQUI PARA "PEMAD" NO SCRIPT DA PLANILHA DO PEMAD
  *         });
  *         return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
  *       } catch (emailErr) {
