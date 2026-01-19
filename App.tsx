@@ -38,7 +38,7 @@ import {
   TentTree
 } from 'lucide-react';
 
-const PERMANENT_SHEET_URL_SEDE = "https://script.google.com/macros/s/AKfycbzAZ9qXRjhCzvawDN_qZq7eG8uM-NsT8A2VxVcKlePoheT3fbMS7RGGqKjDQrl30__4/exec";
+const PERMANENT_SHEET_URL_SEDE = "https://script.google.com/macros/s/AKfycbyXQCnd0H7EorUcjdRrCmSXQ3Sq9p7mBt7mrVb01yzQv_t6zwLZu77bpgVeUjeIUTXd/exec";
 // URL Configurada para PEMAD
 const PERMANENT_SHEET_URL_PEMAD = "https://script.google.com/macros/s/AKfycbxrI2lk12BqOvn1ZzYHhOaNq9gdyhOozUYxNg1P93HppIOy3RXAHw8nVBx6jskpXJoQbQ/exec"; 
 
