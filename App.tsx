@@ -394,10 +394,10 @@ const App: React.FC = () => {
       const itemsList = newMovements.map(m => `- ${m.material} (Origem: ${m.origin || 'SAO'})`).join('\n');
       const subjectSuffix = selectedUnit.id === 'PEMAD' ? 'SAO 6º BBM / PEMAD' : selectedUnit.shortName;
 
-      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais no(a) ${selectedUnit.name}:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\n\nCaso não reconheça este registro, entre em contato com a SAO ou CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te ${selectedUnit.name}`;
+      const msgBorrower = `Olá ${borrowerRank} ${borrowerWarName}, confirmamos que você acautelou os seguintes materiais no(a) ${selectedUnit.name}:\n${itemsList}\nPlantonista responsável: ${authState.user.rank} ${authState.user.warName}.\n\nCaso não reconheça este registro, entre em contato com a SAO ou CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te 1ª Cia. Operacional - ${selectedUnit.name}`;
       await sendMovementEmail(borrowerBm, msgBorrower, `Retirada de Material - ${subjectSuffix}`);
 
-      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de plantonista do(a) ${selectedUnit.name}, entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}.\n\nCaso não reconheça este registro, entre em contato com a SAO ou CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te ${selectedUnit.name}`;
+      const msgDutyOfficer = `Olá ${authState.user.rank} ${authState.user.warName}. registramos que na data de hoje você, na função de plantonista do(a) ${selectedUnit.name}, entregou os itens:\n${itemsList}\nFicaram sob posse do ${borrowerRank} ${borrowerWarName}.\n\nCaso não reconheça este registro, entre em contato com a SAO ou CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te 1ª Cia. Operacional - ${selectedUnit.name}`;
       await sendMovementEmail(authState.user.bm, msgDutyOfficer, `Registro de Saída - ${subjectSuffix}`);
       
     } else {
@@ -459,12 +459,12 @@ const App: React.FC = () => {
         const bInfo = bItems[0]; 
         const itemsList = bItems.map(m => `- ${m.material} (Origem: ${m.origin})`).join('\n');
 
-        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais no(a) ${selectedUnit.name}:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e com o CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te ${selectedUnit.name}`;
+        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais no(a) ${selectedUnit.name}:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e com o CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te 1ª Cia. Operacional - ${selectedUnit.name}`;
         await sendMovementEmail(bBm, msgBorrower, `Devolução Confirmada - ${subjectSuffix}`);
       }
 
       const allItemsList = targets.map(m => `- ${m.material} (${m.rank} ${m.warName}) - (Origem: ${m.origin || 'SAO'})`).join('\n');
-      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você, na função de plantonista do(a) ${selectedUnit.name}, recebeu os seguintes materiais:\n${allItemsList}.\n\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e CBU do dia imediatamente. Tel: (33) 3279-3600.\n\n At.te ${selectedUnit.name}`;
+      const msgReceiver = `Olá ${authState.user.rank} ${authState.user.warName}, verificamos que você, na função de plantonista do(a) ${selectedUnit.name}, recebeu os seguintes materiais:\n${allItemsList}.\n\nCaso não reconheça a movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e CBU do dia imediatamente. Tel: (33) 3279-3600.\n\n At.te 1ª Cia. Operacional - ${selectedUnit.name}`;
       await sendMovementEmail(authState.user.bm, msgReceiver, `Recebimento de Material - ${subjectSuffix}`);
 
     } else {
