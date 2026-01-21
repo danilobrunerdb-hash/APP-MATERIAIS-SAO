@@ -459,7 +459,7 @@ const App: React.FC = () => {
         const bInfo = bItems[0]; 
         const itemsList = bItems.map(m => `- ${m.material} (Origem: ${m.origin})`).join('\n');
 
-        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais no(a) ${selectedUnit.name}:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e com o CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te 1ª Cia. Operacional - ${selectedUnit.name}`;
+        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais no(a) ${selectedUnit.name}:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}.\n\n Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e com o CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te 1ª Cia. Operacional - ${selectedUnit.name}`;
         await sendMovementEmail(bBm, msgBorrower, `Devolução Confirmada - ${subjectSuffix}`);
       }
 
