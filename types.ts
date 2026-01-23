@@ -43,6 +43,7 @@ export interface Movement {
   receiverRank?: string;
   dutyOfficerBm?: string;
   dutyOfficerName?: string;
+  image?: string; // Campo opcional para foto em Base64
 }
 
 export interface AuthState {

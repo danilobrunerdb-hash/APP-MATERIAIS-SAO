@@ -3,7 +3,7 @@ import { Movement } from './types';
 
 /**
  * =================================================================================
- * INSTRUÇÕES OBRIGATÓRIAS PARA ATIVAR O ENVIO DE E-MAIL (GOOGLE APPS SCRIPT)
+ * INSTRUÇÕES OBRIGATÓRIAS PARA ATUALIZAR O SCRIPT (GOOGLE APPS SCRIPT)
  * =================================================================================
  * 
  * 1. Copie TODO o código que está dentro do bloco "CÓDIGO PARA COPIAR" abaixo.
@@ -11,36 +11,39 @@ import { Movement } from './types';
  * 3. Apague tudo lá e cole este código novo.
  * 
  * --- PASSO CRÍTICO (AUTORIZAÇÃO) ---
- * 4. Na barra superior do editor de script, há um menu dropdown com nomes de funções (provavelmente estará "doPost").
- * 5. Mude de "doPost" para "AUTORIZAR_PERMISSOES".
- * 6. Clique no botão "Executar" (ícone de Play) ao lado.
- *    - O Google pedirá permissão. Selecione sua conta.
- *    - Se aparecer "Aplicativo não verificado", clique em "Advanced/Avançado" > "Go to... (unsafe)".
- *    - Clique em "Allow/Permitir".
- *    - Verifique se apareceu "Permissões concedidas" no Log de Execução abaixo.
+ * 4. Mude a função de execução para "AUTORIZAR_PERMISSOES".
+ * 5. Clique em "Executar". O Google pedirá permissão para acessar o DRIVE e EMAIL.
+ *    - Conceda todas as permissões (Avançado > Acessar... > Permitir).
  * 
  * --- PASSO FINAL (IMPLANTAÇÃO) ---
- * 7. Clique no botão azul "Implantar" (topo direito) > "Gerenciar implantações".
- * 8. Clique no ícone de lápis (Editar) na versão ativa.
- * 9. Em "Versão", abra a lista e selecione "Nova versão". (Se não fizer isso, o código antigo continua rodando).
- * 10. Clique em "Implantar".
+ * 6. Clique em "Implantar" > "Gerenciar implantações".
+ * 7. Clique no ícone de lápis (Editar) na versão ativa.
+ * 8. EM "VERSÃO", SELECIONE "NOVA VERSÃO". (Isso é obrigatório para o código novo funcionar).
+ * 9. Clique em "Implantar".
  * 
  * CÓDIGO PARA COPIAR:
  * ---------------------------------------------------------------------------------
  * 
- * // Função auxiliar apenas para forçar a janela de permissões do Google
  * function AUTORIZAR_PERMISSOES() {
  *   var email = Session.getActiveUser().getEmail();
- *   console.log("Autorizando envio de emails para: " + email);
- *   MailApp.getRemainingDailyQuota(); // Isso força o pedido de escopo de e-mail
- *   console.log("Permissões concedidas com sucesso.");
+ *   console.log("Autorizando: " + email);
+ *   MailApp.getRemainingDailyQuota(); 
+ *   DriveApp.getRootFolder(); // Força permissão do Drive
+ * }
+ * 
+ * function getOrCreateFolder(folderName) {
+ *   var folders = DriveApp.getFoldersByName(folderName);
+ *   if (folders.hasNext()) {
+ *     return folders.next();
+ *   } else {
+ *     return DriveApp.createFolder(folderName);
+ *   }
  * }
  * 
  * function doPost(e) {
  *   var lock = LockService.getScriptLock();
  *   try {
- *     // Aguarda até 10s para evitar conflitos de salvamento simultâneo
- *     lock.tryLock(10000);
+ *     lock.tryLock(30000); // Aumentado tempo de lock para upload
  *     
  *     var data = JSON.parse(e.postData.contents);
  *     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -51,31 +54,33 @@ import { Movement } from './types';
  *       if (!data.to || !data.subject || !data.body) {
  *         return ContentService.createTextOutput("Error: Missing parameters").setMimeType(ContentService.MimeType.TEXT);
  *       }
- *       
  *       try {
  *         MailApp.sendEmail({
  *           to: data.to,
  *           subject: data.subject,
  *           body: data.body,
  *           noReply: true,
- *           name: "SAO - 6º BBM" // <--- DICA: ALTERE AQUI PARA "PEMAD" NO SCRIPT DA PLANILHA DO PEMAD
+ *           name: "SAO - 6º BBM"
  *         });
  *         return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
  *       } catch (emailErr) {
- *         // Retorna o erro exato do Google (ex: cota excedida)
  *         return ContentService.createTextOutput("EmailError: " + emailErr.toString()).setMimeType(ContentService.MimeType.TEXT);
  *       }
  *     }
  *     
  *     // --- AÇÃO: SALVAR DADOS ---
  *     if (data.action === 'save' && data.movements && Array.isArray(data.movements)) {
+ *       
+ *       // Pasta onde as fotos serão salvas
+ *       var folder = getOrCreateFolder("SAO_IMAGENS_SISTEMA");
+ *       
  *       sheet.clear(); 
  *       
  *       var headers = [
  *         "ID", "BM", "Nome", "Nome Guerra", "Posto", 
  *         "Material", "Categoria", "Origem", "Data Saída", "Previsão", "Motivo", 
  *         "Status", "Data Retorno", "Obs", "Recebedor BM", "Recebedor Nome", 
- *         "Recebedor Guerra", "Recebedor Posto", "Plantonista BM", "Plantonista Nome", "Plantonista do Dia"
+ *         "Recebedor Guerra", "Recebedor Posto", "Plantonista BM", "Plantonista Nome", "Plantonista do Dia", "Foto"
  *       ];
  *       sheet.appendRow(headers);
  *       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f4f6");
@@ -85,15 +90,46 @@ import { Movement } from './types';
  *           var plantonistaResumo = m.dutyOfficerName ? m.dutyOfficerName + " (" + m.dutyOfficerBm + ")" : "";
  *           var origemTratada = (m.origin && m.origin.toString().trim() !== "") ? m.origin : "SAO";
  *           
+ *           // TRATAMENTO DE IMAGEM (UPLOAD PRO DRIVE)
+ *           var imageUrl = m.image || '';
+ *           
+ *           // Se a string começar com "data:image", é um base64 novo que precisa subir
+ *           if (imageUrl.toString().indexOf('data:image') === 0) {
+ *             try {
+ *               var base64Data = imageUrl.split(',')[1];
+ *               var decoded = Utilities.base64Decode(base64Data);
+ *               var blob = Utilities.newBlob(decoded, 'image/jpeg', 'foto_' + m.id + '.jpg');
+ *               var file = folder.createFile(blob);
+ *               
+ *               // Tenta ajustar permissão (pode falhar em domínios corporativos restritos)
+ *               // Isolamos isso num try/catch interno para não quebrar o salvamento se a TI bloquear sharing
+ *               try {
+ *                 file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+ *               } catch (ePerm) {
+ *                 console.log("Alerta de Permissão: " + ePerm.toString()); 
+ *               }
+ *               
+ *               // CORREÇÃO AQUI: Usa link direto de visualização por ID em vez de getThumbnailLink()
+ *               imageUrl = "https://drive.google.com/uc?export=view&id=" + file.getId();
+ * 
+ *             } catch (errImg) {
+ *               // Grava o erro real na célula para debug
+ *               imageUrl = "Erro: " + errImg.toString();
+ *             }
+ *           }
+ *           // Se já for uma URL (http...), mantém como está
+ *           
  *           return [
  *             m.id, m.bm, m.name, m.warName, m.rank,
  *             m.material, m.type, origemTratada, 
  *             m.dateCheckout, m.estimatedReturnDate || '', m.reason || '',
  *             m.status, m.dateReturn || '', m.observations || '', 
  *             m.receiverBm || '', m.receiverName || '', m.receiverWarName || '', m.receiverRank || '', 
- *             m.dutyOfficerBm || '', m.dutyOfficerName || '', plantonistaResumo
+ *             m.dutyOfficerBm || '', m.dutyOfficerName || '', plantonistaResumo, imageUrl
  *           ];
  *         });
+ *         
+ *         // Grava em lotes
  *         sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
  *       }
  *       return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
@@ -125,7 +161,7 @@ import { Movement } from './types';
  *           dateCheckout: String(row[8]), estimatedReturnDate: String(row[9]), reason: String(row[10]),
  *           status: String(row[11]), dateReturn: String(row[12]), observations: String(row[13]),
  *           receiverBm: String(row[14]), receiverName: String(row[15]), receiverWarName: String(row[16]), 
- *           receiverRank: String(row[17]), dutyOfficerBm: String(row[18] || ''), dutyOfficerName: String(row[19] || '')
+ *           receiverRank: String(row[17]), dutyOfficerBm: String(row[18] || ''), dutyOfficerName: String(row[19] || ''), image: String(row[21] || '')
  *         });
  *       }
  *       return ContentService.createTextOutput(JSON.stringify(results)).setMimeType(ContentService.MimeType.JSON);

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AuthState, MilitaryPerson, Movement, MovementStatus, MaterialType, UnitConfig, UnitID } from './types';
 import { MATERIAL_TYPES, RANKS } from './constants';
 import { getSmartSummary } from './geminiService';
@@ -35,7 +35,9 @@ import {
   BookOpen,
   ArrowLeft,
   Building2,
-  TentTree
+  TentTree,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL_SEDE = "https://script.google.com/macros/s/AKfycbyXQCnd0H7EorUcjdRrCmSXQ3Sq9p7mBt7mrVb01yzQv_t6zwLZu77bpgVeUjeIUTXd/exec";
@@ -144,6 +146,7 @@ interface CartItem {
   type: MaterialType;
   origin: string;
   estimatedReturn: string;
+  image?: string;
 }
 
 const App: React.FC = () => {
@@ -191,6 +194,7 @@ const App: React.FC = () => {
     d.setDate(d.getDate() + 7);
     return d.toISOString().split('T')[0];
   });
+  const [checkoutImage, setCheckoutImage] = useState<string>('');
   
   // Cart state for multi-origin
   const [checkoutCart, setCheckoutCart] = useState<CartItem[]>([]);
@@ -201,6 +205,8 @@ const App: React.FC = () => {
   const [selectedReturnIds, setSelectedReturnIds] = useState<string[]>([]);
   const [pendingObservations, setPendingObservations] = useState('');
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Theme helper
   const theme = useMemo(() => {
@@ -331,6 +337,50 @@ const App: React.FC = () => {
 
   const handleSyncManually = () => syncData(true);
 
+  // Compress image helper
+  const handleImageCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = reader.result;
+        // Fix for potential issue where result is not a string
+        if (typeof result !== 'string') return;
+        
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 500;
+          const MAX_HEIGHT = 500;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // Compress to 50% quality
+            setCheckoutImage(dataUrl);
+          }
+        };
+        img.src = result;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const addItemToCart = (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkoutMaterial.trim()) return;
@@ -341,7 +391,8 @@ const App: React.FC = () => {
       reason: checkoutReason || 'Não informado',
       type: checkoutType,
       origin: checkoutOrigin,
-      estimatedReturn: checkoutEstimatedReturn
+      estimatedReturn: checkoutEstimatedReturn,
+      image: checkoutImage
     };
 
     setCheckoutCart([...checkoutCart, newItem]);
@@ -350,6 +401,8 @@ const App: React.FC = () => {
     setCheckoutMaterial('');
     setCheckoutReason('');
     setCheckoutType(MaterialType.OUTROS);
+    setCheckoutImage('');
+    if(fileInputRef.current) fileInputRef.current.value = "";
     addNotification("Item adicionado à lista", "success");
   };
 
@@ -379,7 +432,8 @@ const App: React.FC = () => {
       origin: item.origin,
       status: MovementStatus.PENDENTE,
       dutyOfficerBm: authState.user!.bm,
-      dutyOfficerName: `${authState.user!.rank} ${authState.user!.warName}`
+      dutyOfficerName: `${authState.user!.rank} ${authState.user!.warName}`,
+      image: item.image // Passando a imagem
     }));
     
     const updated = [...newMovements, ...movements];
@@ -459,7 +513,7 @@ const App: React.FC = () => {
         const bInfo = bItems[0]; 
         const itemsList = bItems.map(m => `- ${m.material} (Origem: ${m.origin})`).join('\n');
 
-        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais no(a) ${selectedUnit.name}:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}.\n\n Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e com o CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te 1ª Cia. Operacional - ${selectedUnit.name}`;
+        const msgBorrower = `Olá ${bInfo.rank} ${bInfo.warName}, confirmamos a devolução dos materiais no(a) ${selectedUnit.name}:\n${itemsList}\nRecebido por: ${authState.user.rank} ${authState.user.warName}. Caso não reconheça essa movimentação ou verifique qualquer inconsistência, entre em contato com a SAO e com o CBU do dia IMEDIATAMENTE. Tel: (33) 3279-3600\n\n At.te 1ª Cia. Operacional - ${selectedUnit.name}`;
         await sendMovementEmail(bBm, msgBorrower, `Devolução Confirmada - ${subjectSuffix}`);
       }
 
@@ -866,6 +920,35 @@ const App: React.FC = () => {
                         </select>
                       </div>
                     </div>
+                    
+                    <div className="space-y-1">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Foto do Material (Opcional)</label>
+                       <div className="flex items-center gap-4">
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment" 
+                            className="hidden" 
+                            ref={fileInputRef}
+                            onChange={handleImageCapture}
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-3 rounded-xl font-bold text-xs uppercase flex items-center gap-2 border border-slate-200 transition-all"
+                          >
+                             <Camera className="w-4 h-4" /> Capturar Foto
+                          </button>
+                          {checkoutImage && (
+                             <div className="relative group">
+                                <img src={checkoutImage} alt="Preview" className="h-12 w-12 rounded-lg object-cover border-2 border-slate-200" />
+                                <button type="button" onClick={() => { setCheckoutImage(''); if(fileInputRef.current) fileInputRef.current.value = ""; }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-md">
+                                   <X className="w-3 h-3" />
+                                </button>
+                             </div>
+                          )}
+                       </div>
+                    </div>
 
                     <button type="submit" className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg uppercase flex items-center justify-center gap-2 transition-all active:scale-95">
                       <PlusCircle className="w-5 h-5" /> Adicionar à Lista
@@ -885,10 +968,21 @@ const App: React.FC = () => {
                           <button onClick={() => removeItemFromCart(item.id)} className="absolute top-2 right-2 text-slate-300 hover:text-red-500 transition-colors">
                             <Trash2 className="w-4 h-4" />
                           </button>
-                          <p className="font-bold text-slate-800 text-sm pr-6">{item.material}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                             <span className="text-[9px] uppercase font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">{item.origin}</span>
-                             <span className="text-[9px] text-slate-400">{item.type}</span>
+                          <div className="flex gap-3">
+                             {item.image ? (
+                                <img src={item.image} className="w-10 h-10 rounded-lg object-cover border border-slate-100 bg-slate-50" alt="Item" />
+                             ) : (
+                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300">
+                                   <ImageIcon className="w-5 h-5" />
+                                </div>
+                             )}
+                             <div>
+                                <p className="font-bold text-slate-800 text-sm pr-6">{item.material}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                   <span className="text-[9px] uppercase font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">{item.origin}</span>
+                                   <span className="text-[9px] text-slate-400">{item.type}</span>
+                                </div>
+                             </div>
                           </div>
                         </div>
                       ))
@@ -951,8 +1045,11 @@ const App: React.FC = () => {
                           <p className="text-[11px] text-slate-400 font-bold">Retirado em: {formatDateTime(m.dateCheckout)}</p>
                           <p className={`text-[11px] font-black uppercase ${overdue ? 'text-red-600' : 'text-slate-400'}`}>Previsão: {formatDateOnly(m.estimatedReturnDate)}</p>
                         </div>
-                        <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-sm text-slate-700 font-medium italic">
-                          "{m.material}"
+                        <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-sm text-slate-700 font-medium italic flex items-start gap-3">
+                          {m.image && (
+                            <img src={m.image} className="w-12 h-12 rounded object-cover border border-slate-200" alt="Foto" />
+                          )}
+                          <span>"{m.material}"</span>
                         </div>
                       </div>
                     </div>
@@ -1000,8 +1097,15 @@ const App: React.FC = () => {
                                   <div className="text-[9px] lg:text-[8px] text-slate-400 font-bold">BM {m.bm}</div>
                                 </td>
                                 <td className="py-5 px-5 border-y border-slate-100">
-                                  <div className="font-bold text-slate-700 max-w-xs leading-relaxed">{m.material}</div>
-                                  <div className="text-[8px] uppercase font-black text-slate-400 mt-1">{m.type}</div>
+                                  <div className="flex items-start gap-2">
+                                     {m.image && (
+                                        <img src={m.image} alt="Ref" className="w-8 h-8 rounded object-cover border border-slate-200" />
+                                     )}
+                                     <div>
+                                        <div className="font-bold text-slate-700 max-w-xs leading-relaxed">{m.material}</div>
+                                        <div className="text-[8px] uppercase font-black text-slate-400 mt-1">{m.type}</div>
+                                     </div>
+                                  </div>
                                 </td>
                                 <td className="py-5 px-5 border-y border-slate-100">
                                    <div className="flex items-center gap-1.5 text-[10px] lg:text-[9px] font-bold text-slate-600 uppercase bg-slate-100 px-2 py-1 rounded-md w-fit">
@@ -1137,9 +1241,12 @@ const App: React.FC = () => {
                  <p className="font-black text-slate-400 uppercase text-[10px] mb-2">Lista de Materiais:</p>
                  <div className="max-h-[150px] overflow-y-auto space-y-2">
                     {checkoutCart.map(item => (
-                       <div key={item.id} className="bg-white p-2 rounded border border-slate-100 text-xs">
-                          <span className="font-bold">{item.material}</span>
-                          <span className="block text-[10px] text-slate-400">Origem: {item.origin} | Prev: {formatDateOnly(item.estimatedReturn)}</span>
+                       <div key={item.id} className="bg-white p-2 rounded border border-slate-100 text-xs flex gap-2">
+                          {item.image && <img src={item.image} className="w-10 h-10 rounded object-cover" alt="item"/>}
+                          <div>
+                            <span className="font-bold">{item.material}</span>
+                            <span className="block text-[10px] text-slate-400">Origem: {item.origin} | Prev: {formatDateOnly(item.estimatedReturn)}</span>
+                          </div>
                        </div>
                     ))}
                  </div>
