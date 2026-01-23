@@ -33,11 +33,20 @@ import { Movement } from './types';
  * 
  * function getOrCreateFolder(folderName) {
  *   var folders = DriveApp.getFoldersByName(folderName);
+ *   var folder;
  *   if (folders.hasNext()) {
- *     return folders.next();
+ *     folder = folders.next();
  *   } else {
- *     return DriveApp.createFolder(folderName);
+ *     folder = DriveApp.createFolder(folderName);
  *   }
+ *   
+ *   // Tenta definir a pasta como pública para garantir que os arquivos dentro herdem a visibilidade
+ *   try {
+ *     folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+ *   } catch(e) {
+ *     console.log("Aviso: Não foi possível definir permissão pública na pasta (pode ser restrição de domínio).");
+ *   }
+ *   return folder;
  * }
  * 
  * function doPost(e) {
@@ -102,14 +111,13 @@ import { Movement } from './types';
  *               var file = folder.createFile(blob);
  *               
  *               // Tenta ajustar permissão (pode falhar em domínios corporativos restritos)
- *               // Isolamos isso num try/catch interno para não quebrar o salvamento se a TI bloquear sharing
  *               try {
  *                 file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
  *               } catch (ePerm) {
- *                 console.log("Alerta de Permissão: " + ePerm.toString()); 
+ *                 console.log("Alerta de Permissão no Arquivo: " + ePerm.toString()); 
  *               }
  *               
- *               // CORREÇÃO AQUI: Usa link direto de visualização por ID em vez de getThumbnailLink()
+ *               // CORREÇÃO: Link direto de visualização
  *               imageUrl = "https://drive.google.com/uc?export=view&id=" + file.getId();
  * 
  *             } catch (errImg) {

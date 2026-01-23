@@ -149,6 +149,57 @@ interface CartItem {
   image?: string;
 }
 
+// Componente auxiliar para exibir imagem com fallback robusto
+const ImageDisplay = ({ src }: { src?: string }) => {
+  const [error, setError] = useState(false);
+  
+  // SOLUÇÃO DEFINITIVA: Converter links do Drive para o endpoint de 'thumbnail'.
+  // O link 'uc?export=view' é tratado como download e bloqueado (403) em tags <img> repetidas.
+  // O link 'thumbnail?id=...' é tratado como preview e funciona estavelmente.
+  const imageSrc = useMemo(() => {
+    if (!src) return '';
+    
+    // Verifica se é um link do Drive e se tem um ID
+    if (src.includes('drive.google.com') && src.includes('id=')) {
+       const match = src.match(/id=([^&]+)/);
+       if (match && match[1]) {
+         // sz=w200 define a largura da miniatura para 200px (boa qualidade/leve)
+         return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+       }
+    }
+    return src;
+  }, [src]);
+
+  if (!src || src.length < 5) return null;
+  // Tratar mensagem de erro salva no banco
+  if (src.startsWith('Erro')) {
+      return <span className="text-[9px] text-red-500 font-bold bg-red-50 px-2 py-1 rounded" title={src}>Erro Upload</span>;
+  }
+  
+  if (error) {
+    return (
+      <a href={src} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[9px] text-blue-600 underline font-bold bg-blue-50 px-2 py-1 rounded-md min-w-fit hover:bg-blue-100 transition-colors" title="Clique para abrir (Imagem não carregou na visualização)">
+        <ImageIcon className="w-3 h-3" /> Ver Foto
+      </a>
+    );
+  }
+
+  return (
+    <div className="relative shrink-0">
+      <img 
+        src={imageSrc} 
+        referrerPolicy="no-referrer"
+        loading="lazy"
+        className="w-10 h-10 rounded-lg object-cover border border-slate-200 cursor-pointer hover:scale-[2.5] hover:shadow-xl transition-all origin-left z-10 bg-slate-100" 
+        alt="Foto"
+        title="Clique para abrir original"
+        onClick={() => window.open(src, '_blank')} // Abre o link original (full size) ao clicar
+        onError={() => setError(true)}
+      />
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   // Unit State
   const [selectedUnit, setSelectedUnit] = useState<UnitConfig | null>(null);
@@ -1046,9 +1097,7 @@ const App: React.FC = () => {
                           <p className={`text-[11px] font-black uppercase ${overdue ? 'text-red-600' : 'text-slate-400'}`}>Previsão: {formatDateOnly(m.estimatedReturnDate)}</p>
                         </div>
                         <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm text-sm text-slate-700 font-medium italic flex items-start gap-3">
-                          {m.image && (
-                            <img src={m.image} className="w-12 h-12 rounded object-cover border border-slate-200" alt="Foto" />
-                          )}
+                          <ImageDisplay src={m.image} />
                           <span>"{m.material}"</span>
                         </div>
                       </div>
@@ -1098,9 +1147,7 @@ const App: React.FC = () => {
                                 </td>
                                 <td className="py-5 px-5 border-y border-slate-100">
                                   <div className="flex items-start gap-2">
-                                     {m.image && (
-                                        <img src={m.image} alt="Ref" className="w-8 h-8 rounded object-cover border border-slate-200" />
-                                     )}
+                                     <ImageDisplay src={m.image} />
                                      <div>
                                         <div className="font-bold text-slate-700 max-w-xs leading-relaxed">{m.material}</div>
                                         <div className="text-[8px] uppercase font-black text-slate-400 mt-1">{m.type}</div>
