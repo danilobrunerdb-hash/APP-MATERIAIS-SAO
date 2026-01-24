@@ -638,6 +638,7 @@ const App: React.FC = () => {
                   <li>Identifique o militar que está retirando o material (BM e Nome).</li>
                   <li>Adicione os itens um a um no "carrinho" de acordo com a origem.</li>
                   <li><strong>Campo Origem:</strong> Selecione a origem (SAO, Viatura, Galpão, etc).</li>
+                  <li>Se o retirante <strong> não for do 6º BBM</strong> escreva a unidade e contato após o nome (Ex: Fernando ALBERTO Rodrigues / 11º BBM (31) 90000-0000).</li>
                   <li>É <strong>Opcional</strong> adicionar foto e tipo do item acautelado.</li>
                   <li>Clique em "Finalizar Cautela" para salvar. O sistema envia e-mail automático.</li>
                 </ul>
