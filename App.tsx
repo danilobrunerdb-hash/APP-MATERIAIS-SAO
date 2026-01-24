@@ -654,6 +654,37 @@ const App: React.FC = () => {
                   <li>Clique no botão flutuante <strong>"Receber X Itens"</strong>.</li>
                 </ul>
               </section>
+
+                <section className="space-y-3">
+                <h3 className={`text-lg font-black uppercase ${theme.text} flex items-center gap-2 border-b pb-2`}>
+                  4. Histórico
+                </h3>
+                <ul className="list-disc pl-5 space-y-2 text-slate-600 text-sm">
+                  <li>Acesse os links abaixo para consultar o histórico via planilhas.</li>
+                <li>
+                  <strong>SEDE: </strong> 
+                  <a 
+                    href="https://docs.google.com/spreadsheets/d/1tNDlKzYo4TOnFCdZD_DKDD-uUvEuqXkNL6ZT9pzvmOc/edit?gid=453801128#gid=453801128" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline hover:text-blue-800 break-all"
+                  >
+                    Clique aqui para abrir a Planilha SEDE
+                  </a>
+                </li>
+                <li>
+                  <strong>PEMAD: </strong> 
+                  <a 
+                    href="https://docs.google.com/spreadsheets/d/18snyfPPyGdLt5aGFC_zdSa2loDWwrG_yTIiaxHTMu2M/edit?gid=453801128#gid=453801128" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline hover:text-blue-800 break-all"
+                  >
+                    Clique aqui para abrir a Planilha PEMAD
+                  </a>
+                </li>
+                </ul>
+              </section>
            </div>
         </div>
       </div>
