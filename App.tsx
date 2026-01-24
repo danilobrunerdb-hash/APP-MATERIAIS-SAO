@@ -652,6 +652,8 @@ const App: React.FC = () => {
                   <li>Acesse a aba <strong>Devolução</strong>.</li>
                   <li>Selecione as caixas de seleção dos itens que estão sendo devolvidos.</li>
                   <li>Clique no botão flutuante <strong>"Receber X Itens"</strong>.</li>
+                  <li>Caso haja alteração no material conste no campo <strong>"Observações"</strong>. Proceda com os ritos via SEI, conforme o caso.</li>
+                  <li>Em caso de <strong>Devolução parcial</strong> receba os itens normalmente e abra uma nova solicitação com os itens que ainda restaram sob posse do BM.</li>
                 </ul>
               </section>
 
@@ -683,6 +685,7 @@ const App: React.FC = () => {
                     Clique aqui para abrir a Planilha PEMAD
                   </a>
                 </li>
+                <li>Qualquer necessidade de <strong>Alteração do histórico</strong> entre em contato com a 1ª Cia. Op. ou Comandante do PEMAD/PBRESC.</li>
                 </ul>
               </section>
            </div>
