@@ -920,8 +920,8 @@ const App: React.FC = () => {
                     <input type="text" placeholder="Ex: 123.456-7" className={`w-full p-3 bg-white border border-slate-200 rounded-xl font-bold focus:ring-2 ${theme.primaryRing} outline-none`} value={borrowerBm} onChange={(e) => setBorrowerBm(formatBM(e.target.value))} />
                   </div>
                   <div className="space-y-1 sm:col-span-2 lg:col-span-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
-                    <input type="text" placeholder="Ex: PAULO Santos" className={`w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={borrowerName} onChange={(e) => setBorrowerName(e.target.value)} />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo (Guerra em CAIXA ALTA)</label>
+                    <input type="text" placeholder="Ex: Paulo SANTOS de Oliveira" className={`w-full p-3 bg-white border border-slate-200 rounded-xl font-medium focus:ring-2 ${theme.primaryRing} outline-none`} value={borrowerName} onChange={(e) => setBorrowerName(e.target.value)} />
                   </div>
                 </div>
               </div>
