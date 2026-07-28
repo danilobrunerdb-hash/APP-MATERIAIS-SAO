@@ -284,8 +284,8 @@ const App: React.FC = () => {
   // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE (20 MINUTOS)
   // =========================================================================
   useEffect(() => {
-    // Só ativa se o usuário estiver logado
-    if (!authState.user) return;
+    // Só ativa se uma unidade estiver selecionada (na tela de login ou já logado)
+    if (!selectedUnit) return;
 
     let inactivityTimer: NodeJS.Timeout;
 
@@ -303,7 +303,7 @@ const App: React.FC = () => {
         localStorage.removeItem('sao_selected_unit_id');
         
         // Emite alerta
-        addNotification("Sessão expirada por inatividade. Selecione a unidade e faça login novamente.", "error");
+        addNotification("Sessão expirada por inatividade. Selecione a unidade novamente.", "error");
       }, 20 * 60 * 1000);
     };
 
