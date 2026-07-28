@@ -280,6 +280,50 @@ const App: React.FC = () => {
     }, 5000);
   };
 
+  // =========================================================================
+  // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE (20 MINUTOS)
+  // =========================================================================
+  useEffect(() => {
+    // Só ativa se o usuário estiver logado
+    if (!authState.user) return;
+
+    let inactivityTimer: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(inactivityTimer);
+      // 20 minutos = 20 * 60 * 1000 = 1200000 ms
+      inactivityTimer = setTimeout(() => {
+        // Remove os dados de login
+        setAuthState({ user: null, isVisitor: false });
+        if (selectedUnit) {
+          localStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
+        }
+        // Retorna para a tela principal (Removendo unidade selecionada)
+        setSelectedUnit(null);
+        localStorage.removeItem('sao_selected_unit_id');
+        
+        // Emite alerta
+        addNotification("Sessão expirada por inatividade. Selecione a unidade e faça login novamente.", "error");
+      }, 20 * 60 * 1000);
+    };
+
+    // Eventos que resetam o timer
+    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    events.forEach(event => document.addEventListener(event, resetTimer));
+
+    // Inicializa o timer
+    resetTimer();
+
+    // Limpa os event listeners ao desmontar ou ao deslogar
+    return () => {
+      clearTimeout(inactivityTimer);
+      events.forEach(event => document.removeEventListener(event, resetTimer));
+    };
+  }, [authState.user, selectedUnit, addNotification]);
+  // =========================================================================
+  // FIM: LOGOUT AUTOMÁTICO POR INATIVIDADE
+  // =========================================================================
+  
   const sendMovementEmail = async (toBm: string, messageBody: string, subjectTitle: string) => {
     const email = `${toBm.replace(/\D/g, '')}@bombeiros.mg.gov.br`;
     try {
