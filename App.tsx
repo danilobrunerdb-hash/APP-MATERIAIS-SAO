@@ -280,7 +280,7 @@ const App: React.FC = () => {
     }, 5000);
   };
 
-  // =========================================================================
+ // =========================================================================
   // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE (20 MINUTOS)
   // =========================================================================
   useEffect(() => {
@@ -291,6 +291,9 @@ const App: React.FC = () => {
 
     const resetTimer = () => {
       clearTimeout(inactivityTimer);
+      // Registra a última atividade para caso o usuário feche o navegador ou atualize a página
+      localStorage.setItem('sao_last_activity_timestamp', Date.now().toString());
+
       // 20 minutos = 20 * 60 * 1000 = 1200000 ms
       inactivityTimer = setTimeout(() => {
         // Remove os dados de login
@@ -308,18 +311,27 @@ const App: React.FC = () => {
     };
 
     // Eventos que resetam o timer
-    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
-    events.forEach(event => document.addEventListener(event, resetTimer));
+    const handleActivity = () => resetTimer();
 
-    // Inicializa o timer
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('scroll', handleActivity);
+    window.addEventListener('touchstart', handleActivity); // Adicionado para mobile
+
+    // Inicia o timer na primeira renderização
     resetTimer();
 
-    // Limpa os event listeners ao desmontar ou ao deslogar
+    // Limpa os event listeners quando o componente for desmontado
     return () => {
       clearTimeout(inactivityTimer);
-      events.forEach(event => document.removeEventListener(event, resetTimer));
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('click', handleActivity);
+      window.removeEventListener('scroll', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
     };
-  }, [authState.user, selectedUnit, addNotification]);
+  }, [selectedUnit, addNotification]);
   // =========================================================================
   // FIM: LOGOUT AUTOMÁTICO POR INATIVIDADE
   // =========================================================================
