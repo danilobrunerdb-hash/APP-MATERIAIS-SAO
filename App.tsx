@@ -307,7 +307,7 @@ const App: React.FC = () => {
         
         // Emite alerta
         addNotification("Sessão expirada por inatividade. Selecione a unidade novamente.", "error");
-      }, 20 * 60 * 1000);
+      }, 0.1 * 60 * 1000);
     };
 
     // Eventos que resetam o timer
