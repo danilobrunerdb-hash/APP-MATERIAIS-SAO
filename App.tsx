@@ -756,9 +756,9 @@ const App: React.FC = () => {
         <div className="max-w-4xl w-full relative z-10 animate-in fade-in zoom-in-95 duration-700">
           <div className="text-center mb-6 md:mb-12">
             <img 
-              src="https://www.bombeiros.mg.gov.br/images/logo.png" 
+              src="https://lh3.googleusercontent.com/pw/AP1GczNg4-qLKeyhTyHYyYACmWjkTgNUtg9IeSQyim26Twt8HAayletXNau1IHWfWjsMEBlpxBYoIZ38xrhOwtcDSPfu_r_Neq3WTLQsBtNvPgsSRLMCrZM3psfM5Z-ZcmGZo9NJwR96pH09Y3COUz8fqSar=w916-h911-s-no-gm" 
               alt="Logo CBMMG" 
-              className="w-16 h-16 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 drop-shadow-2xl" 
+              className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-4 md:mb-6 drop-shadow-2xl" 
             />
             <h1 className="text-2xl md:text-5xl font-black text-white uppercase tracking-tighter mb-1 md:mb-2">Controle de Materiais</h1>
             <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-sm">6º Batalhão de Bombeiros Militar</p>
@@ -846,7 +846,7 @@ const App: React.FC = () => {
             </button>
 
             <img 
-              src="https://www.bombeiros.mg.gov.br/images/logo.png" 
+              src="https://lh3.googleusercontent.com/pw/AP1GczNg4-qLKeyhTyHYyYACmWjkTgNUtg9IeSQyim26Twt8HAayletXNau1IHWfWjsMEBlpxBYoIZ38xrhOwtcDSPfu_r_Neq3WTLQsBtNvPgsSRLMCrZM3psfM5Z-ZcmGZo9NJwR96pH09Y3COUz8fqSar=w916-h911-s-no-gm" 
               alt="Logo CBMMG" 
               className="w-24 mx-auto mb-6 drop-shadow-xl" 
             />
@@ -907,7 +907,7 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <img 
-              src="https://www.bombeiros.mg.gov.br/images/logo.png" 
+              src="https://lh3.googleusercontent.com/pw/AP1GczNg4-qLKeyhTyHYyYACmWjkTgNUtg9IeSQyim26Twt8HAayletXNau1IHWfWjsMEBlpxBYoIZ38xrhOwtcDSPfu_r_Neq3WTLQsBtNvPgsSRLMCrZM3psfM5Z-ZcmGZo9NJwR96pH09Y3COUz8fqSar=w916-h911-s-no-gm" 
               alt="Logo CBMMG" 
               className="w-8 h-8 drop-shadow-md" 
             />
