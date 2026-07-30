@@ -266,7 +266,7 @@ const App: React.FC = () => {
 
   // Load selected unit from storage on mount
   useEffect(() => {
-    const savedUnitId = localStorage.getItem('sao_selected_unit_id');
+    const savedUnitId = sessionStorage.getItem('sao_selected_unit_id');
     if (savedUnitId && UNITS[savedUnitId as UnitID]) {
       setSelectedUnit(UNITS[savedUnitId as UnitID]);
     }
@@ -280,7 +280,7 @@ const App: React.FC = () => {
     }, 5000);
   };
 
- // =========================================================================
+// =========================================================================
   // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE (20 MINUTOS)
   // =========================================================================
   useEffect(() => {
@@ -291,23 +291,23 @@ const App: React.FC = () => {
 
     const resetTimer = () => {
       clearTimeout(inactivityTimer);
-      // Registra a última atividade para caso o usuário feche o navegador ou atualize a página
-      localStorage.setItem('sao_last_activity_timestamp', Date.now().toString());
+      // Usando sessionStorage: os dados sobrevivem ao atualizar a página, mas somem ao fechar a aba
+      sessionStorage.setItem('sao_last_activity_timestamp', Date.now().toString());
 
       // 20 minutos = 20 * 60 * 1000 = 1200000 ms
       inactivityTimer = setTimeout(() => {
         // Remove os dados de login
         setAuthState({ user: null, isVisitor: false });
         if (selectedUnit) {
-          localStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
+          sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
         }
         // Retorna para a tela principal (Removendo unidade selecionada)
         setSelectedUnit(null);
-        localStorage.removeItem('sao_selected_unit_id');
+        sessionStorage.removeItem('sao_selected_unit_id');
         
         // Emite alerta
-        addNotification("Sessão expirada por inatividade. Selecione a unidade novamente.", "error");
-      }, 10 * 60 * 1000);
+        addNotification("Sessão expirada por inatividade. Faça login novamente.", "error");
+      }, 20 * 60 * 1000); // <-- Ajustado para 20 minutos
     };
 
     // Eventos que resetam o timer
@@ -398,7 +398,7 @@ const App: React.FC = () => {
 
     const initApp = async () => {
       const storageUserKey = `sao_current_user_${selectedUnit.id}`;
-      const savedUser = localStorage.getItem(storageUserKey);
+      const savedUser = sessionStorage.getItem(storageUserKey);
       if (savedUser) setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
       
       // We need to pass the URL manually here because setSheetUrl state update might not have flushed yet for the syncData callback
@@ -780,7 +780,7 @@ const App: React.FC = () => {
             <button 
               onClick={() => {
                 const unit = UNITS.SEDE;
-                localStorage.setItem('sao_selected_unit_id', unit.id);
+                sessionStorage.setItem('sao_selected_unit_id', unit.id);
                 setSelectedUnit(unit);
               }}
               className="group relative bg-white rounded-3xl p-4 md:p-8 transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_-10px_rgba(220,38,38,0.6)] overflow-hidden"
@@ -805,7 +805,7 @@ const App: React.FC = () => {
             <button 
               onClick={() => {
                 const unit = UNITS.PEMAD;
-                localStorage.setItem('sao_selected_unit_id', unit.id);
+                sessionStorage.setItem('sao_selected_unit_id', unit.id);
                 setSelectedUnit(unit);
               }}
               className="group relative bg-white rounded-3xl p-4 md:p-8 transition-all hover:-translate-y-1 hover:shadow-[0_0_40px_-10px_rgba(234,88,12,0.6)] overflow-hidden"
@@ -873,7 +873,7 @@ const App: React.FC = () => {
               const warNameFound = uppercaseWords.length > 0 ? uppercaseWords.join(' ') : names[names.length - 1];
               const user = { rank: formRank, name: formName, warName: warNameFound, bm: formBm, cpf: '' };
               setAuthState({ user, isVisitor: false });
-              localStorage.setItem(`sao_current_user_${selectedUnit.id}`, JSON.stringify(user));
+              sessionStorage.setItem(`sao_current_user_${selectedUnit.id}`, JSON.stringify(user));
               // Trigger sync immediately with user loaded
               if (sheetUrl) {
                 const storageKey = `sao_movements_${selectedUnit.id}`;
