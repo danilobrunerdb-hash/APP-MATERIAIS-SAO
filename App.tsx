@@ -280,24 +280,6 @@ const App: React.FC = () => {
     }, 5000);
   };
 
-// =========================================================================
-  // INÍCIO: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
-  // =========================================================================
-  const handleGoBack = () => {
-    // 1. Limpa a unidade selecionada no estado do React
-    setSelectedUnit(null);
-
-    // 2. Remove os dados de seleção de unidade do cache do navegador
-    sessionStorage.removeItem('sao_selected_unit_id');
-    
-    // 3. Executa a navegação de volta (ajuste de acordo com sua biblioteca)
-    // Se usar react-router-dom, use navigate(-1) ou navigate('/')
-    window.history.back(); 
-  };
-  // =========================================================================
-  // FIM: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
-  // =========================================================================
-
   // =========================================================================
   // INÍCIO: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
   // =========================================================================
