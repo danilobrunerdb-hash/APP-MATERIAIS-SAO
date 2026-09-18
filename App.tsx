@@ -279,6 +279,30 @@ const App: React.FC = () => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 5000);
   };
+
+// =========================================================================
+  // INÍCIO: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
+  // =========================================================================
+  const handleGoBack = () => {
+    // 1. Limpa a unidade selecionada no estado do React
+    setSelectedUnit(null);
+
+    // 2. Remove os dados de seleção de unidade do cache do navegador
+    sessionStorage.removeItem('sao_selected_unit_id');
+    
+    // Se você estiver salvando os campos digitados (nome, nº BM) temporariamente, limpe-os também:
+    // sessionStorage.removeItem('sao_draft_login_data');
+
+    // 3. Executa a navegação de volta (ajuste de acordo com sua biblioteca de rotas)
+    // Exemplo com React Router:
+    // navigate('/'); 
+    // Ou usando o histórico do navegador:
+    // window.history.back();
+  };
+  // =========================================================================
+  // FIM: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
+  // =========================================================================
+  
 // =========================================================================
   // INÍCIO: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
   // =========================================================================
