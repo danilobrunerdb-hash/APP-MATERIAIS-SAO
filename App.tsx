@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AuthState, MilitaryPerson, Movement, MovementStatus, MaterialType, UnitConfig, UnitID } from './types';
 import { MATERIAL_TYPES, RANKS } from './constants';
@@ -41,11 +40,8 @@ import {
 } from 'lucide-react';
 
 const PERMANENT_SHEET_URL_SEDE = "https://script.google.com/macros/s/AKfycbyXQCnd0H7EorUcjdRrCmSXQ3Sq9p7mBt7mrVb01yzQv_t6zwLZu77bpgVeUjeIUTXd/exec";
-// URL Configurada para PEMAD
 const PERMANENT_SHEET_URL_PEMAD = "https://script.google.com/macros/s/AKfycbxrI2lk12BqOvn1ZzYHhOaNq9gdyhOozUYxNg1P93HppIOy3RXAHw8nVBx6jskpXJoQbQ/exec"; 
 
-// --- CONFIGURAÇÃO DE LOGOS ---
-// Substitua as URLs abaixo pelos links dos arquivos PNG informados
 const LOGO_SEDE_URL = "https://lh3.googleusercontent.com/pw/AP1GczOz2AhM552qAgdmxiIOyRGmSjpy4CB-NXjG8hi4lrNw7qPO3nvnN2-tBgf_rC2BZ9eRLdT4RMZao6KYQH2491BiXKZTYg2P7dG40u6QFD34WFRxzrBKDPRBDC86-z5kToRz1UtxVhrADJxoQo4ysL1_=w487-h512-s-no-gm?authuser=0"; 
 const LOGO_PEMAD_URL = "https://lh3.googleusercontent.com/pw/AP1GczO6BpZloEeO-gyjV_gu_HrsF8KlPEsAOUq4UgycHBUzMT-iILU1P54YKghilwlTmt0SCtrVKxG-rrUXKcjFXpaQA0Cw7dAcYYGnPlFNi66lP0IiQtOLw_eO_rohMz1vP_WI6l9rvfa6vJsewgchVj0w=w194-h197-s-no-gm?authuser=0"; 
 
@@ -87,7 +83,7 @@ const THEMES = {
     border: 'border-orange-800',
     text: 'text-orange-700',
     textDark: 'text-orange-900',
-    textLight: 'text-orange-100', // Better contrast on dark orange
+    textLight: 'text-orange-100',
     lightBg: 'bg-orange-50',
     lightBorder: 'border-orange-200',
     iconColor: 'text-orange-600',
@@ -149,21 +145,14 @@ interface CartItem {
   image?: string;
 }
 
-// Componente auxiliar para exibir imagem com fallback robusto
 const ImageDisplay = ({ src }: { src?: string }) => {
   const [error, setError] = useState(false);
   
-  // SOLUÇÃO DEFINITIVA: Converter links do Drive para o endpoint de 'thumbnail'.
-  // O link 'uc?export=view' é tratado como download e bloqueado (403) em tags <img> repetidas.
-  // O link 'thumbnail?id=...' é tratado como preview e funciona estavelmente.
   const imageSrc = useMemo(() => {
     if (!src) return '';
-    
-    // Verifica se é um link do Drive e se tem um ID
     if (src.includes('drive.google.com') && src.includes('id=')) {
        const match = src.match(/id=([^&]+)/);
        if (match && match[1]) {
-         // sz=w200 define a largura da miniatura para 200px (boa qualidade/leve)
          return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
        }
     }
@@ -171,7 +160,6 @@ const ImageDisplay = ({ src }: { src?: string }) => {
   }, [src]);
 
   if (!src || src.length < 5) return null;
-  // Tratar mensagem de erro salva no banco
   if (src.startsWith('Erro')) {
       return <span className="text-[9px] text-red-500 font-bold bg-red-50 px-2 py-1 rounded" title={src}>Erro Upload</span>;
   }
@@ -193,7 +181,7 @@ const ImageDisplay = ({ src }: { src?: string }) => {
         className="w-10 h-10 rounded-lg object-cover border border-slate-200 cursor-pointer hover:scale-[2.5] hover:shadow-xl transition-all origin-left z-10 bg-slate-100" 
         alt="Foto"
         title="Clique para abrir original"
-        onClick={() => window.open(src, '_blank')} // Abre o link original (full size) ao clicar
+        onClick={() => window.open(src, '_blank')}
         onError={() => setError(true)}
       />
     </div>
@@ -201,7 +189,6 @@ const ImageDisplay = ({ src }: { src?: string }) => {
 };
 
 const App: React.FC = () => {
-  // Unit State
   const [selectedUnit, setSelectedUnit] = useState<UnitConfig | null>(null);
 
   const [authState, setAuthState] = useState<AuthState>({ user: null, isVisitor: false });
@@ -225,17 +212,14 @@ const App: React.FC = () => {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isLoadingAi, setIsLoadingAi] = useState(false);
 
-  // Login Form states
   const [formRank, setFormRank] = useState('');
   const [formName, setFormName] = useState('');
   const [formBm, setFormBm] = useState('');
 
-  // Checkout Form states
   const [borrowerRank, setBorrowerRank] = useState('');
   const [borrowerName, setBorrowerName] = useState('');
   const [borrowerBm, setBorrowerBm] = useState('');
   
-  // Item specific states
   const [checkoutMaterial, setCheckoutMaterial] = useState('');
   const [checkoutReason, setCheckoutReason] = useState('');
   const [checkoutType, setCheckoutType] = useState<MaterialType>(MaterialType.OUTROS);
@@ -247,24 +231,33 @@ const App: React.FC = () => {
   });
   const [checkoutImage, setCheckoutImage] = useState<string>('');
   
-  // Cart state for multi-origin
   const [checkoutCart, setCheckoutCart] = useState<CartItem[]>([]);
 
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
   
-  // Return States
   const [selectedReturnIds, setSelectedReturnIds] = useState<string[]>([]);
   const [pendingObservations, setPendingObservations] = useState('');
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Theme helper
   const theme = useMemo(() => {
     return selectedUnit ? THEMES[selectedUnit.theme] : THEMES.red;
   }, [selectedUnit]);
 
-  // Load selected unit from storage on mount
+  // =========================================================================
+  // PREVENÇÃO DE LOGIN FANTASMA AO RECARREGAR (F5)
+  // =========================================================================
+  useEffect(() => {
+    const act = sessionStorage.getItem('sao_last_activity_timestamp');
+    const now = Date.now();
+    // Se não tiver registro de atividade ou passou de 20 minutos, limpa cache e impede auto-login
+    if (!act || (now - parseInt(act)) > 20 * 60 * 1000) {
+      sessionStorage.clear();
+      localStorage.removeItem('sao_selected_unit_id'); // Garante que também limpe localStorage antigo
+    }
+  }, []);
+
   useEffect(() => {
     const savedUnitId = sessionStorage.getItem('sao_selected_unit_id');
     if (savedUnitId && UNITS[savedUnitId as UnitID]) {
@@ -280,101 +273,60 @@ const App: React.FC = () => {
     }, 5000);
   };
 
-// =========================================================================
-  // INÍCIO: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
+  // =========================================================================
+  // INÍCIO: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE FORÇADA
   // =========================================================================
   const handleGoBack = () => {
-    // 1. Limpa a unidade selecionada no estado do React
-    setSelectedUnit(null);
-
-    // 2. Remove os dados de seleção de unidade do cache do navegador
     sessionStorage.removeItem('sao_selected_unit_id');
-    
-    // Se você estiver salvando os campos digitados (nome, nº BM) temporariamente, limpe-os também:
-    // sessionStorage.removeItem('sao_draft_login_data');
-
-    // 3. Executa a navegação de volta (ajuste de acordo com sua biblioteca de rotas)
-    // Exemplo com React Router:
-    // navigate('/'); 
-    // Ou usando o histórico do navegador:
-    // window.history.back();
+    localStorage.removeItem('sao_selected_unit_id'); // Limpa sujeiras antigas do localStorage
+    window.location.href = '/'; 
   };
   // =========================================================================
-  // FIM: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
+  // FIM: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE FORÇADA
   // =========================================================================
   
-// =========================================================================
-  // INÍCIO: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
+  // =========================================================================
+  // INÍCIO: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE FORÇADA
   // =========================================================================
   const handleLogout = () => {
-    // 1. Limpa os estados globais/locais do React
-    setAuthState({ user: null, isVisitor: false });
-    setSelectedUnit(null);
-
-    // 2. Limpa as chaves específicas do sessionStorage
+    sessionStorage.clear();
+    // Limpeza por precaução caso algum user tenha ficado preso no local
     if (selectedUnit) {
-      sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
+      localStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
     }
-    sessionStorage.removeItem('sao_selected_unit_id');
-    sessionStorage.removeItem('sao_last_activity_timestamp');
-
-    // DICA: Se outros dados de cache estiverem vazando (ex: formulários, abas), 
-    // você pode forçar a limpeza total da sessão descomentando a linha abaixo:
-    // sessionStorage.clear(); 
-    
-    // Caso utilize localStorage em alguma parte do app, limpe-o também:
-    // localStorage.removeItem('nome_da_chave_de_cache');
-
-    // 3. Feedback visual para o usuário
-    addNotification("Logout realizado com sucesso.", "success");
+    window.location.replace('/');
   };
   // =========================================================================
-  // FIM: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
+  // FIM: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE FORÇADA
   // =========================================================================
   
-// =========================================================================
+  // =========================================================================
   // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE (20 MINUTOS)
   // =========================================================================
   useEffect(() => {
-    // Só ativa se uma unidade estiver selecionada (na tela de login ou já logado)
     if (!selectedUnit) return;
 
     let inactivityTimer: NodeJS.Timeout;
 
     const resetTimer = () => {
       clearTimeout(inactivityTimer);
-      // Usando sessionStorage: os dados sobrevivem ao atualizar a página, mas somem ao fechar a aba
       sessionStorage.setItem('sao_last_activity_timestamp', Date.now().toString());
 
-      // 20 minutos = 20 * 60 * 1000 = 1200000 ms
       inactivityTimer = setTimeout(() => {
-        // Remove os dados de login
-        setAuthState({ user: null, isVisitor: false });
-        if (selectedUnit) {
-          sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
-        }
-        // Retorna para a tela principal (Removendo unidade selecionada)
-        setSelectedUnit(null);
-        sessionStorage.removeItem('sao_selected_unit_id');
-        
-        // Emite alerta
-        addNotification("Sessão expirada por inatividade. Faça login novamente.", "error");
-      }, 10 * 60 * 1000); // <-- Ajustado para 20 minutos
+        handleLogout(); // Usando a nova função nuclear aqui para deslogar em inatividade também
+      }, 20 * 60 * 1000); // 20 minutos
     };
 
-    // Eventos que resetam o timer
     const handleActivity = () => resetTimer();
 
     window.addEventListener('mousemove', handleActivity);
     window.addEventListener('keydown', handleActivity);
     window.addEventListener('click', handleActivity);
     window.addEventListener('scroll', handleActivity);
-    window.addEventListener('touchstart', handleActivity); // Adicionado para mobile
+    window.addEventListener('touchstart', handleActivity);
 
-    // Inicia o timer na primeira renderização
     resetTimer();
 
-    // Limpa os event listeners quando o componente for desmontado
     return () => {
       clearTimeout(inactivityTimer);
       window.removeEventListener('mousemove', handleActivity);
@@ -408,7 +360,6 @@ const App: React.FC = () => {
     if (!selectedUnit || !sheetUrl) return;
     if (showLoader) setIsSyncing(true);
     
-    // Check local storage key specific to unit
     const storageKey = `sao_movements_${selectedUnit.id}`;
 
     const data = await fetchFromSheets(sheetUrl);
@@ -433,7 +384,6 @@ const App: React.FC = () => {
     if (showLoader) setIsSyncing(false);
   }, [sheetUrl, hasInitialLoad, selectedUnit]);
 
-  // Initialize App when Unit is Selected
   useEffect(() => {
     if (!selectedUnit) return;
 
@@ -442,7 +392,6 @@ const App: React.FC = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initialize Sheet URL for this unit
     const storageUrlKey = `sao_sheet_url_${selectedUnit.id}`;
     const storedUrl = localStorage.getItem(storageUrlKey);
     const urlToUse = storedUrl || selectedUnit.defaultSheetUrl;
@@ -453,9 +402,7 @@ const App: React.FC = () => {
       const savedUser = sessionStorage.getItem(storageUserKey);
       if (savedUser) setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
       
-      // We need to pass the URL manually here because setSheetUrl state update might not have flushed yet for the syncData callback
       if (urlToUse) {
-         // Logic duplicated from syncData to ensure immediate execution with correct URL
          const storageKey = `sao_movements_${selectedUnit.id}`;
          const data = await fetchFromSheets(urlToUse);
          if (data) {
@@ -485,9 +432,8 @@ const App: React.FC = () => {
       window.removeEventListener('offline', handleOffline);
       clearInterval(autoSyncInterval);
     };
-  }, [selectedUnit]); // Re-run if unit changes
+  }, [selectedUnit]);
 
-  // Re-trigger sync if sheetURL changes manually
   useEffect(() => {
     if(selectedUnit && sheetUrl && hasInitialLoad) {
         syncData(false);
@@ -496,14 +442,12 @@ const App: React.FC = () => {
 
   const handleSyncManually = () => syncData(true);
 
-  // Compress image helper
   const handleImageCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const result = reader.result;
-        // Fix for potential issue where result is not a string
         if (typeof result !== 'string') return;
         
         const img = new Image();
@@ -530,7 +474,7 @@ const App: React.FC = () => {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // Compress to 50% quality
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.5); 
             setCheckoutImage(dataUrl);
           }
         };
@@ -556,7 +500,6 @@ const App: React.FC = () => {
 
     setCheckoutCart([...checkoutCart, newItem]);
     
-    // Reset item fields but keep borrower info
     setCheckoutMaterial('');
     setCheckoutReason('');
     setCheckoutType(MaterialType.OUTROS);
@@ -592,7 +535,7 @@ const App: React.FC = () => {
       status: MovementStatus.PENDENTE,
       dutyOfficerBm: authState.user!.bm,
       dutyOfficerName: `${authState.user!.rank} ${authState.user!.warName}`,
-      image: item.image // Passando a imagem
+      image: item.image
     }));
     
     const updated = [...newMovements, ...movements];
@@ -709,7 +652,6 @@ const App: React.FC = () => {
     });
   }, [movements, searchTerm, statusFilter]);
 
-  // --- SCREEN 0: INSTRUCTIONS (Must be first to overlay on Unit Selection if needed) ---
   if (showInstructions) {
     return (
       <div className="min-h-screen flex flex-col items-center p-4 bg-slate-50 relative z-[200]">
@@ -802,11 +744,9 @@ const App: React.FC = () => {
     );
   }
 
-  // --- SCREEN 1: UNIT SELECTION ---
   if (!selectedUnit) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-950 relative overflow-hidden">
-        {/* Decorative background elements */}
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_0%,_rgba(220,38,38,0.15),_transparent_70%)] pointer-events-none" />
         
         <button 
@@ -891,10 +831,7 @@ const App: React.FC = () => {
           <div className={`relative p-10 text-center text-white bg-gradient-to-b ${theme.gradient}`}>
             
             <button 
-               onClick={() => {
-                 setSelectedUnit(null);
-                 localStorage.removeItem('sao_selected_unit_id');
-               }} 
+               onClick={handleGoBack} 
                className="absolute top-4 left-4 p-2.5 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-all text-white shadow-lg border border-white/10"
                title="Trocar Unidade"
             >
@@ -926,7 +863,6 @@ const App: React.FC = () => {
               const user = { rank: formRank, name: formName, warName: warNameFound, bm: formBm, cpf: '' };
               setAuthState({ user, isVisitor: false });
               sessionStorage.setItem(`sao_current_user_${selectedUnit.id}`, JSON.stringify(user));
-              // Trigger sync immediately with user loaded
               if (sheetUrl) {
                 const storageKey = `sao_movements_${selectedUnit.id}`;
                 const data = await fetchFromSheets(sheetUrl);
@@ -964,7 +900,6 @@ const App: React.FC = () => {
     );
   }
 
-  // --- MAIN APP ---
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 relative">
       <header className={`${theme.primary} text-white shadow-lg p-4 sticky top-0 z-50`}>
@@ -1004,12 +939,7 @@ const App: React.FC = () => {
             <button onClick={handleSyncManually} className={`p-2 rounded-xl transition-all hover:bg-black/20 bg-black/10 ${isSyncing ? 'animate-spin' : ''}`} title="Sincronizar">
               <RefreshCw className="w-5 h-5" />
             </button>
-            <button onClick={() => { 
-              // Clear current user
-              setAuthState({ user: null, isVisitor: false }); 
-              localStorage.removeItem(`sao_current_user_${selectedUnit.id}`); 
-              // Note: We do NOT clear selectedUnit here, user goes to login screen of same unit
-            }} className="p-2 hover:bg-black/20 rounded-xl transition-all" title="Sair do Plantão">
+            <button onClick={handleLogout} className="p-2 hover:bg-black/20 rounded-xl transition-all" title="Sair do Plantão">
               <LogOut className="w-5 h-5" />
             </button>
           </div>
