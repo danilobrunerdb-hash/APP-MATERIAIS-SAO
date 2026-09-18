@@ -280,33 +280,6 @@ const App: React.FC = () => {
     }, 5000);
   };
 
-  // =========================================================================
-  // INÍCIO: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
-  // =========================================================================
-  const handleLogout = () => {
-    // 1. Limpa os estados globais/locais do React
-    setAuthState({ user: null, isVisitor: false });
-    setSelectedUnit(null);
-
-    // 2. Limpa as chaves específicas do sessionStorage do usuário atual
-    if (selectedUnit) {
-      sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
-    }
-    
-    // 3. Limpa os dados de navegação e inatividade gerais
-    sessionStorage.removeItem('sao_selected_unit_id');
-    sessionStorage.removeItem('sao_last_activity_timestamp');
-
-    // 4. Feedback (se houver) e navegação
-    if (typeof addNotification === 'function') {
-      addNotification("Logout realizado e dados removidos.", "success");
-    }
-    // Redirecione para a tela de início/login se necessário
-  };
-  // =========================================================================
-  // FIM: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
-  // =========================================================================
-
 // =========================================================================
   // INÍCIO: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
   // =========================================================================
