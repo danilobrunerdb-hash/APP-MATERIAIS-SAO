@@ -189,9 +189,32 @@ const ImageDisplay = ({ src }: { src?: string }) => {
 };
 
 const App: React.FC = () => {
-  const [selectedUnit, setSelectedUnit] = useState<UnitConfig | null>(null);
+  
+  // =========================================================================
+  // CORREÇÃO: LER O CACHE DIRETAMENTE NO ESTADO (EVITA A TELA PISCAR)
+  // =========================================================================
+  const [selectedUnit, setSelectedUnit] = useState<UnitConfig | null>(() => {
+    const act = sessionStorage.getItem('sao_last_activity_timestamp');
+    const now = Date.now();
+    // Bloqueia sessão se passou de 20 minutos inativo
+    if (act && (now - parseInt(act)) > 20 * 60 * 1000) {
+      sessionStorage.clear();
+      localStorage.removeItem('sao_selected_unit_id');
+      return null;
+    }
+    const savedUnitId = sessionStorage.getItem('sao_selected_unit_id');
+    return savedUnitId && UNITS[savedUnitId as UnitID] ? UNITS[savedUnitId as UnitID] : null;
+  });
 
-  const [authState, setAuthState] = useState<AuthState>({ user: null, isVisitor: false });
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    const savedUnitId = sessionStorage.getItem('sao_selected_unit_id');
+    if (savedUnitId) {
+      const savedUser = sessionStorage.getItem(`sao_current_user_${savedUnitId}`);
+      if (savedUser) return { user: JSON.parse(savedUser), isVisitor: false };
+    }
+    return { user: null, isVisitor: false };
+  });
+
   const [activeTab, setActiveTab] = useState<'checkout' | 'checkin' | 'history'>('checkout');
   const [movements, setMovements] = useState<Movement[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -245,63 +268,39 @@ const App: React.FC = () => {
     return selectedUnit ? THEMES[selectedUnit.theme] : THEMES.red;
   }, [selectedUnit]);
 
-  // =========================================================================
-  // PREVENÇÃO DE LOGIN FANTASMA AO RECARREGAR (F5)
-  // =========================================================================
-  useEffect(() => {
-    const act = sessionStorage.getItem('sao_last_activity_timestamp');
-    const now = Date.now();
-    // Se não tiver registro de atividade ou passou de 20 minutos, limpa cache e impede auto-login
-    if (!act || (now - parseInt(act)) > 20 * 60 * 1000) {
-      sessionStorage.clear();
-      localStorage.removeItem('sao_selected_unit_id'); // Garante que também limpe localStorage antigo
-    }
-  }, []);
-
-  useEffect(() => {
-    const savedUnitId = sessionStorage.getItem('sao_selected_unit_id');
-    if (savedUnitId && UNITS[savedUnitId as UnitID]) {
-      setSelectedUnit(UNITS[savedUnitId as UnitID]);
-    }
-  }, []);
-
-  const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
+  const addNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
     setNotifications(prev => [...prev, { message, type, id }]);
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 5000);
-  };
+  }, []);
 
   // =========================================================================
-  // INÍCIO: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE FORÇADA
+  // INÍCIO: NAVEGAÇÃO DE VOLTA E LOGOUT (ATUALIZAÇÃO INSTANTÂNEA DE TELA)
   // =========================================================================
   const handleGoBack = () => {
     sessionStorage.removeItem('sao_selected_unit_id');
-    localStorage.removeItem('sao_selected_unit_id'); // Limpa sujeiras antigas do localStorage
-    window.location.href = '/'; 
+    localStorage.removeItem('sao_selected_unit_id');
+    setSelectedUnit(null); 
+    // Atualiza a interface instantaneamente, sem precisar recarregar o site
   };
-  // =========================================================================
-  // FIM: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE FORÇADA
-  // =========================================================================
   
-  // =========================================================================
-  // INÍCIO: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE FORÇADA
-  // =========================================================================
   const handleLogout = () => {
-    sessionStorage.clear();
-    // Limpeza por precaução caso algum user tenha ficado preso no local
     if (selectedUnit) {
+      sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
       localStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
     }
-    window.location.replace('/');
+    sessionStorage.removeItem('sao_last_activity_timestamp');
+    setAuthState({ user: null, isVisitor: false });
+    addNotification("Sessão encerrada com segurança.", "success");
   };
   // =========================================================================
-  // FIM: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE FORÇADA
+  // FIM: NAVEGAÇÃO E LOGOUT
   // =========================================================================
   
   // =========================================================================
-  // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE (20 MINUTOS)
+  // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE
   // =========================================================================
   useEffect(() => {
     if (!selectedUnit) return;
@@ -313,7 +312,7 @@ const App: React.FC = () => {
       sessionStorage.setItem('sao_last_activity_timestamp', Date.now().toString());
 
       inactivityTimer = setTimeout(() => {
-        handleLogout(); // Usando a nova função nuclear aqui para deslogar em inatividade também
+        handleLogout();
       }, 20 * 60 * 1000); // 20 minutos
     };
 
@@ -335,7 +334,7 @@ const App: React.FC = () => {
       window.removeEventListener('scroll', handleActivity);
       window.removeEventListener('touchstart', handleActivity);
     };
-  }, [selectedUnit, addNotification]);
+  }, [selectedUnit]);
   // =========================================================================
   // FIM: LOGOUT AUTOMÁTICO POR INATIVIDADE
   // =========================================================================
@@ -398,10 +397,7 @@ const App: React.FC = () => {
     setSheetUrl(urlToUse);
 
     const initApp = async () => {
-      const storageUserKey = `sao_current_user_${selectedUnit.id}`;
-      const savedUser = sessionStorage.getItem(storageUserKey);
-      if (savedUser) setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
-      
+      // Já não precisamos fazer o setAuthState aqui, pois ele já foi resolvido no valor inicial do useState.
       if (urlToUse) {
          const storageKey = `sao_movements_${selectedUnit.id}`;
          const data = await fetchFromSheets(urlToUse);
