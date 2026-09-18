@@ -279,7 +279,35 @@ const App: React.FC = () => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 5000);
   };
+// =========================================================================
+  // INÍCIO: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
+  // =========================================================================
+  const handleLogout = () => {
+    // 1. Limpa os estados globais/locais do React
+    setAuthState({ user: null, isVisitor: false });
+    setSelectedUnit(null);
 
+    // 2. Limpa as chaves específicas do sessionStorage
+    if (selectedUnit) {
+      sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
+    }
+    sessionStorage.removeItem('sao_selected_unit_id');
+    sessionStorage.removeItem('sao_last_activity_timestamp');
+
+    // DICA: Se outros dados de cache estiverem vazando (ex: formulários, abas), 
+    // você pode forçar a limpeza total da sessão descomentando a linha abaixo:
+    // sessionStorage.clear(); 
+    
+    // Caso utilize localStorage em alguma parte do app, limpe-o também:
+    // localStorage.removeItem('nome_da_chave_de_cache');
+
+    // 3. Feedback visual para o usuário
+    addNotification("Logout realizado com sucesso.", "success");
+  };
+  // =========================================================================
+  // FIM: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
+  // =========================================================================
+  
 // =========================================================================
   // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE (20 MINUTOS)
   // =========================================================================
