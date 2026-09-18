@@ -290,6 +290,52 @@ const App: React.FC = () => {
     // 2. Remove os dados de seleção de unidade do cache do navegador
     sessionStorage.removeItem('sao_selected_unit_id');
     
+    // 3. Executa a navegação de volta (ajuste de acordo com sua biblioteca)
+    // Se usar react-router-dom, use navigate(-1) ou navigate('/')
+    window.history.back(); 
+  };
+  // =========================================================================
+  // FIM: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
+  // =========================================================================
+
+  // =========================================================================
+  // INÍCIO: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
+  // =========================================================================
+  const handleLogout = () => {
+    // 1. Limpa os estados globais/locais do React
+    setAuthState({ user: null, isVisitor: false });
+    setSelectedUnit(null);
+
+    // 2. Limpa as chaves específicas do sessionStorage do usuário atual
+    if (selectedUnit) {
+      sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
+    }
+    
+    // 3. Limpa os dados de navegação e inatividade gerais
+    sessionStorage.removeItem('sao_selected_unit_id');
+    sessionStorage.removeItem('sao_last_activity_timestamp');
+
+    // 4. Feedback (se houver) e navegação
+    if (typeof addNotification === 'function') {
+      addNotification("Logout realizado e dados removidos.", "success");
+    }
+    // Redirecione para a tela de início/login se necessário
+  };
+  // =========================================================================
+  // FIM: LOGOUT MANUAL E LIMPEZA TOTAL DE SESSÃO/CACHE
+  // =========================================================================
+
+  
+// =========================================================================
+  // INÍCIO: NAVEGAÇÃO DE VOLTA COM LIMPEZA DE CACHE
+  // =========================================================================
+  const handleGoBack = () => {
+    // 1. Limpa a unidade selecionada no estado do React
+    setSelectedUnit(null);
+
+    // 2. Remove os dados de seleção de unidade do cache do navegador
+    sessionStorage.removeItem('sao_selected_unit_id');
+    
     // Se você estiver salvando os campos digitados (nome, nº BM) temporariamente, limpe-os também:
     // sessionStorage.removeItem('sao_draft_login_data');
 
