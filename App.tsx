@@ -190,13 +190,9 @@ const ImageDisplay = ({ src }: { src?: string }) => {
 
 const App: React.FC = () => {
   
-  // =========================================================================
-  // LEITURA INSTANTÂNEA DE CACHE (ELIMINA PISCADA E TELA BRANCA NO F5)
-  // =========================================================================
   const [selectedUnit, setSelectedUnit] = useState<UnitConfig | null>(() => {
     const act = sessionStorage.getItem('sao_last_activity_timestamp');
     const now = Date.now();
-    // Se o usuário deu F5 após 20 minutos de inatividade, mata tudo antes da tela carregar
     if (act && (now - parseInt(act)) > 20 * 60 * 1000) {
       sessionStorage.clear();
       return null;
@@ -254,9 +250,7 @@ const App: React.FC = () => {
   const [checkoutImage, setCheckoutImage] = useState<string>('');
   
   const [checkoutCart, setCheckoutCart] = useState<CartItem[]>([]);
-
   const [showCheckoutConfirm, setShowCheckoutConfirm] = useState(false);
-  
   const [selectedReturnIds, setSelectedReturnIds] = useState<string[]>([]);
   const [pendingObservations, setPendingObservations] = useState('');
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
@@ -276,45 +270,34 @@ const App: React.FC = () => {
   }, []);
 
   // =========================================================================
-  // INÍCIO: NAVEGAÇÃO E LOGOUT (LIMPEZA IMEDIATA DE ESTADOS E CACHE)
+  // LIMPEZA NUCLEAR: DESTROI TODO O CACHE E RECARREGA A PÁGINA
   // =========================================================================
-  const handleGoBack = () => {
-    sessionStorage.clear(); // Limpeza nuclear. Não sobra nada para o próximo usuário puxar.
-    setAuthState({ user: null, isVisitor: false });
-    setSelectedUnit(null); 
-  };
-  
-  const handleLogout = () => {
-    if (selectedUnit) {
-      sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
-    }
-    sessionStorage.removeItem('sao_last_activity_timestamp');
-    setAuthState({ user: null, isVisitor: false }); // Renderiza a tela de login instantaneamente
-    addNotification("Sessão encerrada com segurança.", "success");
-  };
-  // =========================================================================
-  // FIM: NAVEGAÇÃO E LOGOUT
-  // =========================================================================
+  const handleLogoutOrBack = useCallback(() => {
+    // Apaga absolutamente todos os dados de sessão
+    sessionStorage.clear();
+    
+    // Remove possíveis resíduos guardados erradamente no localStorage
+    localStorage.removeItem('sao_selected_unit_id');
+    localStorage.removeItem('sao_current_user_SEDE');
+    localStorage.removeItem('sao_current_user_PEMAD');
+    
+    // Força o navegador a reiniciar a aplicação do zero, eliminando qualquer estado
+    window.location.reload();
+  }, []);
 
-  // =========================================================================
-  // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE
-  // =========================================================================
+  // Timer de inatividade a apontar para a nova função nuclear
   useEffect(() => {
     if (!selectedUnit) return;
-
     let inactivityTimer: NodeJS.Timeout;
-
     const resetTimer = () => {
       clearTimeout(inactivityTimer);
       sessionStorage.setItem('sao_last_activity_timestamp', Date.now().toString());
-
       inactivityTimer = setTimeout(() => {
-        handleLogout(); 
-      }, 20 * 60 * 1000); // 20 minutos
+        handleLogoutOrBack(); 
+      }, 20 * 60 * 1000); 
     };
 
     const handleActivity = () => resetTimer();
-
     window.addEventListener('mousemove', handleActivity);
     window.addEventListener('keydown', handleActivity);
     window.addEventListener('click', handleActivity);
@@ -331,9 +314,7 @@ const App: React.FC = () => {
       window.removeEventListener('scroll', handleActivity);
       window.removeEventListener('touchstart', handleActivity);
     };
-  }, [selectedUnit]);
-  // =========================================================================
-  // FIM: LOGOUT AUTOMÁTICO POR INATIVIDADE
+  }, [selectedUnit, handleLogoutOrBack]);
   // =========================================================================
   
   const sendMovementEmail = async (toBm: string, messageBody: string, subjectTitle: string) => {
@@ -394,15 +375,6 @@ const App: React.FC = () => {
     setSheetUrl(urlToUse);
 
     const initApp = async () => {
-      // Garante que o React zere a tela de login se o cache de usuário não existir mais
-      const storageUserKey = `sao_current_user_${selectedUnit.id}`;
-      const savedUser = sessionStorage.getItem(storageUserKey);
-      if (savedUser) {
-        setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
-      } else {
-        setAuthState({ user: null, isVisitor: false });
-      }
-      
       if (urlToUse) {
          const storageKey = `sao_movements_${selectedUnit.id}`;
          const data = await fetchFromSheets(urlToUse);
@@ -832,7 +804,7 @@ const App: React.FC = () => {
           <div className={`relative p-10 text-center text-white bg-gradient-to-b ${theme.gradient}`}>
             
             <button 
-               onClick={handleGoBack} 
+               onClick={handleLogoutOrBack} 
                className="absolute top-4 left-4 p-2.5 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-all text-white shadow-lg border border-white/10"
                title="Trocar Unidade"
             >
@@ -940,7 +912,7 @@ const App: React.FC = () => {
             <button onClick={handleSyncManually} className={`p-2 rounded-xl transition-all hover:bg-black/20 bg-black/10 ${isSyncing ? 'animate-spin' : ''}`} title="Sincronizar">
               <RefreshCw className="w-5 h-5" />
             </button>
-            <button onClick={handleLogout} className="p-2 hover:bg-black/20 rounded-xl transition-all" title="Sair do Plantão">
+            <button onClick={handleLogoutOrBack} className="p-2 hover:bg-black/20 rounded-xl transition-all" title="Sair do Plantão">
               <LogOut className="w-5 h-5" />
             </button>
           </div>
