@@ -191,15 +191,14 @@ const ImageDisplay = ({ src }: { src?: string }) => {
 const App: React.FC = () => {
   
   // =========================================================================
-  // CORREÇÃO: LER O CACHE DIRETAMENTE NO ESTADO (EVITA A TELA PISCAR)
+  // LEITURA INSTANTÂNEA DE CACHE (ELIMINA PISCADA E TELA BRANCA NO F5)
   // =========================================================================
   const [selectedUnit, setSelectedUnit] = useState<UnitConfig | null>(() => {
     const act = sessionStorage.getItem('sao_last_activity_timestamp');
     const now = Date.now();
-    // Bloqueia sessão se passou de 20 minutos inativo
+    // Se o usuário deu F5 após 20 minutos de inatividade, mata tudo antes da tela carregar
     if (act && (now - parseInt(act)) > 20 * 60 * 1000) {
       sessionStorage.clear();
-      localStorage.removeItem('sao_selected_unit_id');
       return null;
     }
     const savedUnitId = sessionStorage.getItem('sao_selected_unit_id');
@@ -277,28 +276,26 @@ const App: React.FC = () => {
   }, []);
 
   // =========================================================================
-  // INÍCIO: NAVEGAÇÃO DE VOLTA E LOGOUT (ATUALIZAÇÃO INSTANTÂNEA DE TELA)
+  // INÍCIO: NAVEGAÇÃO E LOGOUT (LIMPEZA IMEDIATA DE ESTADOS E CACHE)
   // =========================================================================
   const handleGoBack = () => {
-    sessionStorage.removeItem('sao_selected_unit_id');
-    localStorage.removeItem('sao_selected_unit_id');
+    sessionStorage.clear(); // Limpeza nuclear. Não sobra nada para o próximo usuário puxar.
+    setAuthState({ user: null, isVisitor: false });
     setSelectedUnit(null); 
-    // Atualiza a interface instantaneamente, sem precisar recarregar o site
   };
   
   const handleLogout = () => {
     if (selectedUnit) {
       sessionStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
-      localStorage.removeItem(`sao_current_user_${selectedUnit.id}`);
     }
     sessionStorage.removeItem('sao_last_activity_timestamp');
-    setAuthState({ user: null, isVisitor: false });
+    setAuthState({ user: null, isVisitor: false }); // Renderiza a tela de login instantaneamente
     addNotification("Sessão encerrada com segurança.", "success");
   };
   // =========================================================================
   // FIM: NAVEGAÇÃO E LOGOUT
   // =========================================================================
-  
+
   // =========================================================================
   // INÍCIO: LOGOUT AUTOMÁTICO POR INATIVIDADE
   // =========================================================================
@@ -312,7 +309,7 @@ const App: React.FC = () => {
       sessionStorage.setItem('sao_last_activity_timestamp', Date.now().toString());
 
       inactivityTimer = setTimeout(() => {
-        handleLogout();
+        handleLogout(); 
       }, 20 * 60 * 1000); // 20 minutos
     };
 
@@ -397,7 +394,15 @@ const App: React.FC = () => {
     setSheetUrl(urlToUse);
 
     const initApp = async () => {
-      // Já não precisamos fazer o setAuthState aqui, pois ele já foi resolvido no valor inicial do useState.
+      // Garante que o React zere a tela de login se o cache de usuário não existir mais
+      const storageUserKey = `sao_current_user_${selectedUnit.id}`;
+      const savedUser = sessionStorage.getItem(storageUserKey);
+      if (savedUser) {
+        setAuthState({ user: JSON.parse(savedUser), isVisitor: false });
+      } else {
+        setAuthState({ user: null, isVisitor: false });
+      }
+      
       if (urlToUse) {
          const storageKey = `sao_movements_${selectedUnit.id}`;
          const data = await fetchFromSheets(urlToUse);
